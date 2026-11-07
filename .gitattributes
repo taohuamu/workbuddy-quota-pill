@@ -1,0 +1,19 @@
+# 统一换行符：仓库里存 LF，逐个文件类型再覆盖
+* text=auto eol=lf
+
+# .bat 必须是 CRLF —— cmd.exe 解析 LF 结尾的批处理时末行可能被吞
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# VBS 模板由 WSH 按系统代码页读取，CRLF 更稳
+*.tpl text eol=crlf
+
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+
+# 二进制文件不参与换行符转换
+*.bmp binary
+*.png binary
+*.zip binary
+*.ico binary
