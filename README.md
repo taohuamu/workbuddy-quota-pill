@@ -8,6 +8,7 @@
 常驻屏幕右下角的一枚胶囊，显示**最近一次对话用的模型**和它这个周期的用量。碰一下展开，
 看清哪个模型快被打满了。
 
+> 用量百分比是 **服务端随每轮响应下发的原始值**，不是本地估算 —— 本工具只负责把它搬到桌面上。
 > 只读本机日志 —— 不联网、不上传、不需要任何账号或密钥。
 
 **[下载最新版](https://github.com/taohuamu/workbuddy-quota-pill/releases)** ·
@@ -121,14 +122,27 @@ python quota_tray.py --which
 每行一轮请求，取 `providerData.rawUsage.quota`。国际版路径是 `~/.workbuddy-ai/projects/...`，
 可用环境变量 `WORKBUDDY_HOME` 覆盖根目录。
 
+这个字段只有四个键：`model`、`percent`、`reset_at`、`shared_models`。其中
+**`percent` 和 `reset_at` 是服务端随每轮响应下发的原始值**，客户端只负责把它写进日志 ——
+本工具直接透传这两个数字，不做任何二次推算。它不是从 token 数或历史 429 错误反推出来的估算值。
+
+本地真正计算的部分只有三样，都基于那个原始百分比：
+
+- **周期窗口**：`cycle_start = reset_at - 24h`
+- **增速**：窗口内首尾 `percent` 之差 ÷ 时长
+- **触限预测**：按当前增速外推，看会不会在 `reset_at` 之前到 100%
+
+需要说明一个精度边界：`percent` 是**整数**，粒度 1%。周期刚开始、用量还低时（比如 0% → 1%），
+样本颗粒度就是 1%，这时的增速预测会偏粗糙 —— 报告窗会标注「样本仅 N 分钟，暂不预测」。
+
 这个工具只读文件，不写 WorkBuddy 的任何数据，也没有任何网络请求 ——
 所有数据都留在你自己的机器上。
 
 ## 开发
 
 ```bash
-python tests/test_tray.py     # 展示层纯逻辑，157 项
-python tests/test_core.py     # 数据层，41 项
+python tests/test_tray.py     # 展示层纯逻辑，160 项
+python tests/test_core.py     # 数据层，56 项
 python tools/package.py       # 打内测包到 ../dist/
 python tools/preview.py out.bmp --pill   # 离屏渲染一张图
 ```
