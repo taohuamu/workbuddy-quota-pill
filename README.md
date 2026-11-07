@@ -8,12 +8,6 @@
 常驻屏幕右下角的一枚胶囊，显示**最近一次对话用的模型**和它这个周期的用量。碰一下展开，
 看清哪个模型快被打满了。
 
-<p align="center">
-  <img src="docs/images/pill.png" width="232" alt="胶囊态：deepseek-v4.1 67%">
-  &nbsp;&nbsp;
-  <img src="docs/images/card.png" width="378" alt="展开态：模型、进度条与触限预测">
-</p>
-
 > 只读本机日志 —— 不联网、不上传、不需要任何账号或密钥。
 
 **[下载最新版](https://github.com/taohuamu/workbuddy-quota-pill/releases)** ·
@@ -36,11 +30,26 @@ WorkBuddy 的界面不显示「这个模型今天用了百分之多少」。这�
 
 ## 三个形态
 
-| 形态 | 什么时候出现 | 显示什么 |
-|---|---|---|
-| **胶囊** | WorkBuddy 打开后 | 最近一次对话的模型 + 它本周期的用量 |
-| **小卡片** | 鼠标碰一下胶囊，180ms 后展开 | 最多 3 个模型，各自一条进度条和判决语 |
-| **完整报告窗** | 点卡片上任意一行，或右上角「详情」 | 本周期用过的全部模型：重置时间、增速、触限预测、token 与积分消耗 |
+### ① 胶囊
+
+WorkBuddy 打开后出现在右下角。显示最近一次对话用的模型，和它本周期的用量 ——
+一眼就知道当前这个模型还剩多少。
+
+<p align="center"><img src="docs/images/pill.png" width="236" alt="胶囊态"></p>
+
+### ② 小卡片
+
+鼠标碰一下胶囊，180ms 后展开。最多列出 3 个模型，每个一条进度条 + 一句判决语
+（「预计 10.9 小时后触限」这类），比只看百分比更能判断要不要收手。
+
+<p align="center"><img src="docs/images/card.png" width="378" alt="展开态"></p>
+
+### ③ 完整报告窗
+
+点卡片上任意一行（或右上角「详情」）打开。本周期用过的全部模型，
+含重置时间、增速、触限预测，以及周期内的 token 与积分消耗。
+
+<p align="center"><img src="docs/images/report.png" width="720" alt="完整报告窗"></p>
 
 不开 WorkBuddy 的时候它不出现；WorkBuddy 退出后 10 秒，小窗自己结束，不留常驻的
 Python 进程。为了不错过启动时机，附带一个看门狗脚本（约 5MB 内存，CPU 占用约 0.08%），
