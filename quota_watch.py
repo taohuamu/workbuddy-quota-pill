@@ -43,8 +43,73 @@ def norm_reset(v):
     return v / 1000.0 if v > 1e11 else v
 
 
+def as_num(value, cast=float, default=None):
+    """日志字段 → 数值；转不动返回 default。
+
+    日志是客户端写的，类型会变：percent 可能带百分号、tokens 可能带千分位。
+    任何一处转不动都不该让整份报告失效。
+    """
+    if value is None or isinstance(value, bool):
+        return default
+    for candidate in (value, str(value).replace(",", "").replace("%", "").strip()):
+        try:
+            return cast(candidate)
+        except (TypeError, ValueError, OverflowError):
+            continue
+    return default
+
+
+def as_epoch(value):
+    """timestamp → 秒级 float。容忍毫秒数、秒数、ISO 8601 字符串；不行返回 None。"""
+    num = as_num(value)
+    if num is not None:
+        return num / 1000.0 if num > 1e11 else float(num)
+    if isinstance(value, str):
+        try:
+            return dt.datetime.fromisoformat(
+                value.strip().replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            return None
+    return None
+
+
+def _snapshot_of(rec):
+    """一行日志 → (model, 快照)；不是配额行、或关键字段坏掉 → None。
+
+    调用方把整段解析包在 try 里：宁可丢掉这一行，也不要把异常抛到
+    build_report，让整份报告变成「读取失败」——一条坏行不该废掉整个工具。
+    """
+    if not isinstance(rec, dict):
+        return None
+    pd = rec.get("providerData")
+    if not isinstance(pd, dict):
+        return None
+    ru = pd.get("rawUsage")
+    if not isinstance(ru, dict):
+        return None
+    q = ru.get("quota")
+    if not isinstance(q, dict):
+        return None
+    ts = as_epoch(rec.get("timestamp"))
+    percent = as_num(q.get("percent"))
+    if ts is None or percent is None:
+        return None
+    shared = q.get("shared_models")
+    if not isinstance(shared, list):
+        shared = []
+    return (q.get("model") or pd.get("model") or "unknown"), {
+        "ts": ts,
+        "percent": percent,
+        "reset_at": norm_reset(q.get("reset_at")),
+        "shared": shared,
+        "credit": as_num(ru.get("credit"), default=0.0),
+        "tokens": as_num(ru.get("total_tokens") or ru.get("totalTokens"),
+                         cast=int, default=0),
+    }
+
+
 def load_snapshots():
-    """返回 {model: [ {ts,percent,reset_at,credit,tokens} ... ]} 按时间升序。"""
+    """返回 ({model: [ {ts,percent,reset_at,credit,tokens} ... ]}, 文件数, 快照数)。"""
     snaps = defaultdict(list)
     files = glob.glob(os.path.join(PROJECTS, "*", "*.jsonl"))
     seen = 0
@@ -58,27 +123,13 @@ def load_snapshots():
                 if '"quota"' not in line:
                     continue
                 try:
-                    rec = json.loads(line)
-                except ValueError:
+                    got = _snapshot_of(json.loads(line))
+                except Exception:
+                    continue            # 单行任何异常都不许外溢
+                if got is None:
                     continue
-                pd = rec.get("providerData") or {}
-                ru = pd.get("rawUsage") or {}
-                q = ru.get("quota")
-                if not isinstance(q, dict):
-                    continue
-                ts = rec.get("timestamp")
-                percent = q.get("percent")
-                if ts is None or percent is None:
-                    continue
-                model = q.get("model") or pd.get("model") or "unknown"
-                snaps[model].append({
-                    "ts": ts / 1000.0,
-                    "percent": float(percent),
-                    "reset_at": norm_reset(q.get("reset_at")),
-                    "shared": q.get("shared_models") or [],
-                    "credit": float(ru.get("credit") or 0),
-                    "tokens": int(ru.get("total_tokens") or ru.get("totalTokens") or 0),
-                })
+                model, row = got
+                snaps[model].append(row)
                 seen += 1
     for m in snaps:
         snaps[m].sort(key=lambda r: r["ts"])
@@ -213,6 +264,9 @@ def build_report(window_min, warn_threshold):
             "verdict": verdict,
             "first_seen": human_time(rows[0]["ts"]),
             "last_seen": human_time(last["ts"]),
+            # 数值版，供 latest_row 排序。last_seen 是 "MM-DD HH:MM"，
+            # 跨年时 12-31 会大于 01-01 —— 字符串比不出真正的先后
+            "last_seen_ts": last["ts"],
         })
 
     order = {"critical": 0, "warn": 1, "ok": 2, "idle": 3}

@@ -6,6 +6,7 @@ quota-watch 回归测试（无第三方依赖，直接 python tests/test_core.py
 不读取真实会话日志：所有 build_report 用例都在临时目录里伪造 jsonl，
 只有纯函数用例直接构造 dict。
 """
+import datetime as dt
 import json
 import os
 import shutil
@@ -243,6 +244,73 @@ def test_empty_dir():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_safe_numbers():
+    """字段类型容错：日志是客户端写的，别假设它一定是数字。"""
+    check("普通数字", qw.as_num("12.5") == 12.5)
+    check("带百分号", qw.as_num("12%") == 12.0)
+    check("带千分位", qw.as_num("1,234", cast=int) == 1234)
+    check("非法值走默认", qw.as_num("n/a", default=0.0) == 0.0)
+    check("None 走默认", qw.as_num(None, default=-1) == -1)
+    check("bool 不当数字", qw.as_num(True, default=None) is None)
+
+    iso = int(dt.datetime(2026, 11, 7, 10, 0,
+                          tzinfo=dt.timezone.utc).timestamp())
+    check("毫秒时间戳", qw.as_epoch(1793975887000) == 1793975887.0)
+    check("秒时间戳", qw.as_epoch(1793975887) == 1793975887.0)
+    check("ISO 字符串", abs(qw.as_epoch("2026-11-07T10:00:00Z") - iso) < 1)
+    check("坏时间戳返回 None", qw.as_epoch("不是时间") is None)
+
+
+def test_malformed_lines():
+    """一条坏行只丢自己，不能把整份报告拖垮。
+
+    客户端升级改字段类型、写入中途断电留下半行，都可能让某行的
+    timestamp/percent/total_tokens 变成非数值。这些位置以前没有保护，
+    一个 TypeError 会一路抛到 build_report，用户看到「读取失败」。
+    """
+    now = time.time()
+    good = line(int(now * 1000), 10, int(now + 3600))
+    reset = str(int(now + 3600))
+    cases = [
+        ("timestamp 是 ISO 字符串", json.dumps({
+            "timestamp": "2026-11-07T10:00:00Z",
+            "providerData": {"rawUsage": {"quota": {
+                "model": "m-iso", "percent": 20, "reset_at": reset}}},
+        })),
+        ("percent 是 n/a", json.dumps({
+            "timestamp": int(now * 1000),
+            "providerData": {"rawUsage": {"quota": {
+                "model": "m-badpct", "percent": "n/a", "reset_at": reset}}},
+        })),
+        ("total_tokens 带千分位", json.dumps({
+            "timestamp": int(now * 1000),
+            "providerData": {"rawUsage": {
+                "total_tokens": "1,000",
+                "quota": {"model": "m-comma", "percent": 30, "reset_at": reset}}},
+        })),
+        ("quota 不是对象", json.dumps({
+            "timestamp": int(now * 1000),
+            "providerData": {"rawUsage": {"quota": "10%"}},
+        })),
+        ("整行不是对象", "[1, 2, 3]"),
+    ]
+    origin = qw.PROJECTS
+    tmp = tempfile.mkdtemp(prefix="qw-bad-")
+    try:
+        qw.PROJECTS = tmp
+        write_case(os.path.join(tmp, "p1"), [good] + [c[1] for c in cases])
+        rep = qw.build_report(60, 3)
+        names = [r["model"] for r in rep["models"]]
+        check("坏行没让整份报告失效", not rep.get("error"), rep.get("error"))
+        check("有效行仍被统计", "m-test" in names, names)
+        check("ISO 时间戳可解析，不算坏行", "m-iso" in names, names)
+        check("千分位数字被容错解析", "m-comma" in names, names)
+        check("percent 非数值的行被跳过", "m-badpct" not in names, names)
+    finally:
+        qw.PROJECTS = origin
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 if __name__ == "__main__":
     print("quota-watch 回归测试")
     test_norm_reset()
@@ -251,5 +319,7 @@ if __name__ == "__main__":
     test_cycle_and_stale()
     test_build_report_cases()
     test_empty_dir()
+    test_safe_numbers()
+    test_malformed_lines()
     print(f"\n通过 {PASS}，失败 {FAIL}")
     sys.exit(1 if FAIL else 0)

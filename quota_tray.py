@@ -199,16 +199,19 @@ def latest_row(rep):
     """最近一次对话用到的模型。
 
     胶囊上要显示的是「刚刚用的那个模型」，不是最危险的那个 —— 后者留给展开卡片排序。
-    `last_seen` 形如 "11-06 13:20"，同一年内按字符串比较即可。
+    优先按 `last_seen_ts`（数值）比较：`last_seen` 是 "MM-DD HH:MM" 字符串，
+    跨年时 12-31 会排在 01-01 前面，去年用过的模型会被误判成最近的。
     """
     rows = live_models(rep)
     if not rows:
         return None
-
-    def key(r):
-        return (str(r.get("last_seen") or ""), int(r.get("requests") or 0))
-
-    return max(rows, key=key)
+    timed = [r for r in rows if isinstance(r.get("last_seen_ts"), (int, float))]
+    if timed:
+        return max(timed, key=lambda r: (float(r["last_seen_ts"]),
+                                         int(r.get("requests") or 0)))
+    # 老数据没有数值时间戳时退回字符串比较，行为与之前一致
+    return max(rows, key=lambda r: (str(r.get("last_seen") or ""),
+                                    int(r.get("requests") or 0)))
 
 
 def pick_rows(rep, limit=3):
@@ -1796,7 +1799,8 @@ class TrayWindow:
 
     # ── 数据刷新 ─────────────────────────────────────────────────
     def refresh(self):
-        """全量扫日志约 230ms，放后台线程，界面不卡。"""
+        """全量扫日志是几百毫秒量级（本机 58 个文件 / 76MB 实测 660ms），
+        放后台线程，界面不卡。耗时随日志累计线性增长，别假设它恒定。"""
         if self._busy:
             return
         self._busy = True
@@ -2966,7 +2970,8 @@ class ReportWindow:
                 pass
 
     def refresh(self):
-        """重读日志约 230ms —— 丢后台线程，标题栏在刷新期间不能冻住。
+        """重读日志是几百毫秒量级（本机实测 660ms）—— 丢后台线程，
+        标题栏在刷新期间不能冻住。
 
         原来这里是同步调用：点一下 ⟳ 整个窗口僵住两百多毫秒，看着像卡死。
         现在和小窗一样走「后台读 → after 轮询取结果」，期间按钮仍然可点。

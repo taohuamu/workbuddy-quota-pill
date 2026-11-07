@@ -7,7 +7,8 @@ venv/
 build/
 
 # ── 产物与临时文件 ──────────────────────────────────────────────────
-# dist/ 是 tools/package.py 打出来的内测包
+# tools/package.py 实际输出到仓库上一级的 ../dist，这条只是兜底：
+# 万一哪天把打包目录改回仓库内，别让 zip 进版本库
 dist/
 # delivery/ 是评审用的截图与交付说明
 delivery/

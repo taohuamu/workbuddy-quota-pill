@@ -60,7 +60,7 @@ WorkBuddy 启动时负责把小窗拉起来。
 **方式一：下载压缩包**（推荐）
 
 从 [Releases](https://github.com/taohuamu/workbuddy-quota-pill/releases) 下载
-`quota-watch-beta-*.zip`，解压到任意目录（**路径别带空格和中文**），双击 `tray.bat`。
+`quota-watch-*.zip`，解压到任意目录（**路径别带空格和中文**），双击 `tray.bat`。
 
 **方式二：克隆仓库**
 

@@ -433,6 +433,23 @@ def test_wb_pid_cache():
     qt._WB_PID_CACHE["ts"] = 0.0
 
 
+def test_latest_row():
+    """跨年不能按 "MM-DD HH:MM" 字符串比大小 —— 12-31 会大于 01-01。"""
+    rows = [
+        {"model": "old", "last_seen": "12-31 23:50", "last_seen_ts": 1767229800.0,
+         "requests": 5, "percent_used": 10, "level": "ok"},
+        {"model": "new", "last_seen": "01-01 00:10", "last_seen_ts": 1767231000.0,
+         "requests": 2, "percent_used": 11, "level": "ok"},
+    ]
+    got = qt.latest_row({"models": rows})
+    check("跨年按时间戳选最近", got["model"] == "new", got["model"])
+
+    legacy = [{k: v for k, v in r.items() if k != "last_seen_ts"} for r in rows]
+    got = qt.latest_row({"models": legacy})
+    check("缺数值时间戳时退回字符串比较", got["model"] == "old", got["model"])
+    check("空报告返回 None", qt.latest_row({"models": []}) is None)
+
+
 if __name__ == "__main__":
     print("quota-tray 逻辑测试")
     test_text()
@@ -453,5 +470,6 @@ if __name__ == "__main__":
     test_state_file()
     test_layout_state()
     test_wb_pid_cache()
+    test_latest_row()
     print(f"\n通过 {PASS}，失败 {FAIL}")
     sys.exit(1 if FAIL else 0)

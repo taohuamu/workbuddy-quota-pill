@@ -11,7 +11,7 @@ here = "__HERE__"
 pyw = "__PYW__"
 script = here & "\quota_tray.py"
 suppressFile = "__SUPPRESS__"
-lastTry = 0
+lastTry = Empty
 
 Do
   On Error Resume Next
@@ -27,8 +27,12 @@ Do
       If Not blocked Then
         Set q2 = svc.ExecQuery("select ProcessId from Win32_Process where Name='pythonw.exe' and CommandLine like '%quota_tray.py%'")
         If Err.Number = 0 Then
-          If q2.Count = 0 And (lastTry = 0 Or (Timer - lastTry) > 3) Then
-            lastTry = Timer
+          ' Throttle: at most one launch per 3 seconds. Use a date diff, NOT Timer.
+          ' Timer counts seconds since midnight and resets to 0 daily; if the last
+          ' attempt happened after 23:59:57, Timer - lastTry goes negative and the
+          ' guard dies silently until this script is restarted.
+          If q2.Count = 0 And (IsEmpty(lastTry) Or DateDiff("s", lastTry, Now) > 3) Then
+            lastTry = Now
             sh.CurrentDirectory = here
             sh.Run """" & pyw & """ """ & script & """ --grace 120", 0, False
           End If
