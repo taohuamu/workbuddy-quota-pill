@@ -1,16 +1,14 @@
 # WorkBuddy 配额小窗
 
-![license](https://img.shields.io/badge/license-MIT-blue)
-![python](https://img.shields.io/badge/python-3.8%2B-blue)
-![platform](https://img.shields.io/badge/platform-Windows-lightgrey)
+![license](https://img.shields.io/badge/license-MIT-white)
+![python](https://img.shields.io/badge/python-3.8%2B-white)
+![platform](https://img.shields.io/badge/platform-Windows-white)
 [![release](https://img.shields.io/github/v/release/taohuamu/workbuddy-quota-pill?include_prereleases&label=release)](https://github.com/taohuamu/workbuddy-quota-pill/releases)
 
 WorkBuddy 配额小窗是一个显示 WorkBuddy 各模型周期（通常为 24 小时）额度使用情况的特化小工具。
-它能读取服务端随每轮响应下发的额度使用百分比（原始值）并直接呈现给我们，同时提供大概多久
-用完周期配额的预测。
+它能读取服务端随每轮响应下发的额度使用百分比（原始值）并直接呈现给我们，同时提供大概多久用完周期配额的预测。
 
-它小巧安全，不联网，不上传，不碰账号，不改文件，无第三方依赖，解压即用。但它能准确显示
-各模型本周期的额度用量，辅助你安排 AI 使用，避免因突发限额打断思路。
+它小巧安全，不联网，不上传，不碰账号，不改文件，无第三方依赖，解压即用。但它能准确显示各模型本周期的额度用量，辅助你安排 AI 使用，避免因突发限额打断思路。
 
 **[下载最新版](https://github.com/taohuamu/workbuddy-quota-pill/releases)** ·
 [使用说明](使用说明.md) ·
@@ -21,11 +19,9 @@ WorkBuddy 配额小窗是一个显示 WorkBuddy 各模型周期（通常为 24 �
 ## 开发缘起
 
 WorkBuddy 对模型用量有两套限制：一个是账号级的积分，一个是每个模型各自的周期配额。
-如果是积分耗尽，整个工作流都会停下来；如果是某个模型的配额耗尽，则会在模型思考时中断，
-等配额重置或切到别的模型后才能继续。
+如果是积分耗尽，整个工作流都会停下来；如果是某个模型的配额耗尽，则会在模型思考时中断，等配额重置或切到别的模型后才能继续。
 
-可是，WorkBuddy 的「个人中心 → 用量」只能看到积分余额和消耗明细，看不到单个模型此刻的
-额度用掉了百分之多少。于是，一个常见的情景出现了：正当我们的 DeepSeek-v4.1-Flash 充满激情地
+可是，WorkBuddy 的「个人中心 → 用量」只能看到积分余额和消耗明细，看不到单个模型此刻的额度用掉了百分之多少。于是，一个常见的情景出现了：正当我们的 DeepSeek-v4.1-Flash 充满激情地
 生成内容时，WorkBuddy 突然提示「已达上限」，导致我们工作和思路都被打断。
 
 为解决这个问题，我在 GitHub 等网站多次搜寻相关内容，但并没有找到符合我需求和习惯的工具。
@@ -41,33 +37,25 @@ WorkBuddy 打开后出现在右下角。显示最近一次对话用的模型以�
 
 ### ② 小卡片
 
-鼠标触碰胶囊后展开。最多列 3 个模型，每个模型配一条进度条和一句判决语，
-直观呈现各模型的额度使用情况与预计耗尽时间。判决语如「10.9 小时内触限」，
-意思是照当前速度，再过 10.9 小时额度就会用尽。
+鼠标触碰胶囊后展开。最多列 3 个模型，每个模型配一条进度条和一句判决语，直观呈现各模型的额度使用情况与预计耗尽时间。
 
 <p align="center"><img src="docs/images/card.png" width="378" alt="展开态"></p>
 
 ### ③ 完整报告窗
 
-点卡片上任意一行（或右上角「详情」）打开。列出当前周期内有消耗的模型，包含各自的重置时间、
-增速、触限预测，以及周期内的 token 与积分消耗。
+点卡片上任意一行（或右上角「详情」）打开。列出当前周期内有消耗的模型，包含各自的重置时间、增速、触限预测，以及周期内的 token 与积分消耗。
 
 <p align="center"><img src="docs/images/report.png" width="720" alt="完整报告窗"></p>
 
 ## 启停机制
 
-若启用「开机自动待命」，开机时启动看门狗。它常驻内存约 5MB，单核 CPU 占用约 0.2%
-（8 核整机约 0.03%），每 5 秒检查一次 WorkBuddy 是否在运行。
+若启用「开机自动待命」，开机时启动看门狗，每 5 秒检查一次 WorkBuddy 是否在运行。
 
 WorkBuddy 没启动的时候，它不出现。
 
-WorkBuddy 启动后，看门狗在下一次检查时发现并启动本工具，整个流程约 3 秒。运行期间，
-本工具每 1.5 秒探测一次状态；切到其他应用超过 3 秒，它自动隐藏，回到 WorkBuddy 后随即恢复。
+WorkBuddy 启动后，看门狗在下一次检查时发现并启动本工具，整个流程约 3 秒。运行期间，本工具每 1.5 秒探测一次状态；切到其他应用超过 3 秒，它自动隐藏，回到 WorkBuddy 后随即恢复。
 
 WorkBuddy 退出后，本工具在 10 秒后自行结束进程，只剩看门狗继续等待。
-
-看门狗**不守护本工具**，只做一件事：发现 WorkBuddy 起来了，就把它启动起来 —— 所以既不会
-开机就白占一份 Python 进程，也不会错过启动时机。
 
 未启用「开机自动待命」时，每次开机需要手动双击 `tray.bat`。
 
@@ -75,12 +63,9 @@ WorkBuddy 退出后，本工具在 10 秒后自行结束进程，只剩看门狗
 
 WorkBuddy 在本地写有会话日志，其中记录了各模型的周期配额使用情况。本工具的数据来源于此。
 
-日志路径为 `%USERPROFILE%\.workbuddy\projects\<项目>\<会话>.jsonl`。每行对应一轮请求，其中
-`providerData.rawUsage.quota` 字段记录该轮响应的配额状态，包含 `model`、`percent`、`reset_at`、
-`shared_models` 四个键。
+日志路径为 `%USERPROFILE%\.workbuddy\projects\<项目>\<会话>.jsonl`。每行对应一轮请求，其中`providerData.rawUsage.quota` 字段记录该轮响应的配额状态，包含 `model`、`percent`、`reset_at`、`shared_models` 四个键。
 
-`percent` 与 `reset_at` 由服务端随响应下发，客户端写入日志，本工具直接读取，不做任何加工。
-`percent` 为整数，粒度 1%，界面按原值显示，不做插值。
+`percent` 与 `reset_at` 由服务端随响应下发，客户端写入日志，本工具直接读取，不做任何加工。`percent` 为整数，粒度 1%，界面按原值显示，不做插值。
 
 为预测触限时间，本工具在此基础上计算三项：
 
@@ -94,8 +79,7 @@ WorkBuddy 在本地写有会话日志，其中记录了各模型的周期配额�
 
 前置要求：Windows 10 / 11，Python 3.8 以上。Python 官网安装包默认带 tkinter，不需要额外安装。
 
-1. 从 [Releases](https://github.com/taohuamu/workbuddy-quota-pill/releases) 下载压缩包，
-   解压到任意目录（路径建议不含空格和中文）。
+1. 从 [Releases](https://github.com/taohuamu/workbuddy-quota-pill/releases) 下载压缩包，解压到任意目录（路径建议不含空格和中文）。
 2. 双击 `tray.bat`。
 3. 右键小窗，勾选「开机自动待命」。
 
@@ -117,7 +101,7 @@ WorkBuddy 在本地写有会话日志，其中记录了各模型的周期配额�
 
 注意：第 1 步不能省。旧实例还在运行时，新实例会因单实例限制直接退出，看起来像更新未生效。
 
-## 常见问题
+## 常见疑问
 
 1. **GLM-5.3-Flash 等部分模型不显示用量**：本地日志中没有 `quota` 字段，取不到百分比，
    结合使用经验猜测是没有周期限额。
