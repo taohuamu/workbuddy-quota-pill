@@ -118,7 +118,7 @@ WorkBuddy 在本地写有会话日志，其中记录了各模型的周期配额�
    两者口径不同。`percent` 为整数，粒度 1%，因此会出现「用了一会儿仍显示 0%」的情况。
 8. **数据存放在哪、会不会上传**：全部来自本机的会话日志。国际版路径为
    `~/.workbuddy-ai/projects/...`，可用环境变量 `WORKBUDDY_HOME` 覆盖根目录。本工具只读文件，
-   不写 WorkBuddy 的任何数据，也没有任何网络请求 —— 所有数据都留在你自己的机器上。
+   不写 WorkBuddy 的任何数据，也没有任何网络请求；所有数据都留在你自己的机器上。
 
 ## 开发
 
@@ -132,7 +132,7 @@ python tools/preview.py out.bmp --pill   # 离屏渲染一张图
 图形部分没有自动断言 —— 分层窗口（`-transparentcolor`）的行为很难在无头环境复现，
 相关判断靠人工看 `tools/preview.py` 抓出来的图。
 
-设计取舍、踩过的坑、坐标系约定都在 [`docs/design.md`](docs/design.md)。
+详情请见 [`docs/design.md`](docs/design.md)。
 
 ## 声明
 
