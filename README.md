@@ -67,6 +67,23 @@ WorkBuddy 打开后出现在右下角。显示最近一次对话用的模型，�
 它**不守护小窗**，只做一件事：发现 WorkBuddy 起来了，就把小窗拉起来。所以既不会开机就白占
 一份 Python 进程，也不会错过启动时机。
 
+## 工作原理
+
+数据取自 WorkBuddy 的本地会话日志，路径为 `%USERPROFILE%\.workbuddy\projects\<项目>\<会话>.jsonl`。
+每行对应一轮请求，其中 `providerData.rawUsage.quota` 字段记录该轮响应的配额状态，包含
+`model`、`percent`、`reset_at`、`shared_models` 四个键。
+
+`percent` 与 `reset_at` 由服务端随响应下发，客户端写入日志。本工具直接读取，不做二次推算。
+它不是从 token 数或历史 429 错误反推出来的估算值。`percent` 为整数，粒度为 1%。
+
+在此基础上计算三项：
+
+- 周期窗口：`reset_at` 减 24 小时，仅统计该区间内的记录
+- 增速：区间内首尾 `percent` 之差除以时长
+- 触限预测：按当前增速外推至 100%，估算剩余时间
+
+样本区间过短或数据点不足时不做预测，报告窗会标注「样本仅 N 分钟，暂不预测」。
+
 ## 它不做什么
 
 反向清单比功能列表更能说明边界：
@@ -204,21 +221,7 @@ WorkBuddy 没在跑的时候它本来就不显示。如果 WorkBuddy 开着还�
 %USERPROFILE%\.workbuddy\projects\<project-key>\<session-id>.jsonl
 ```
 
-每行一轮请求，取 `providerData.rawUsage.quota`。国际版路径是 `~/.workbuddy-ai/projects/...`，
-可用环境变量 `WORKBUDDY_HOME` 覆盖根目录。
-
-这个字段只有四个键：`model`、`percent`、`reset_at`、`shared_models`。其中
-**`percent` 和 `reset_at` 是服务端随每轮响应下发的原始值**，客户端只负责把它写进日志 ——
-本工具直接透传这两个数字，不做任何二次推算。它不是从 token 数或历史 429 错误反推出来的估算值。
-
-本地真正计算的部分只有三样，都基于那个原始百分比：
-
-- **周期窗口**：`cycle_start = reset_at - 24h`
-- **增速**：窗口内首尾 `percent` 之差 ÷ 时长
-- **触限预测**：按当前增速外推，看会不会在 `reset_at` 之前到 100%
-
-需要说明一个精度边界：`percent` 是**整数**，粒度 1%。周期刚开始、用量还低时（比如 0% → 1%），
-样本颗粒度就是 1%，这时的增速预测会偏粗糙 —— 报告窗会标注「样本仅 N 分钟，暂不预测」。
+国际版路径是 `~/.workbuddy-ai/projects/...`，可用环境变量 `WORKBUDDY_HOME` 覆盖根目录。
 
 这个工具只读文件，不写 WorkBuddy 的任何数据，也没有任何网络请求 ——
 所有数据都留在你自己的机器上。
