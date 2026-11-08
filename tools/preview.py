@@ -93,7 +93,7 @@ class BIH(ctypes.Structure):
                 ("biClrImportant", wintypes.DWORD)]
 
 
-TITLE = "配额哨兵 · 完整报告" if REPORT else "配额哨兵"
+TITLE = "配额胶囊 · 完整报告" if REPORT else "配额胶囊"
 hits = []
 
 

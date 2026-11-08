@@ -1,4 +1,4 @@
-# WorkBuddy 配额哨兵
+# WorkBuddy 配额胶囊
 
 [English](README.md) · **简体中文**
 
@@ -7,7 +7,7 @@
 ![platform](https://img.shields.io/badge/platform-Windows-white)
 [![release](https://img.shields.io/github/v/release/taohuamu/workbuddy-quota-pill?include_prereleases&label=release)](https://github.com/taohuamu/workbuddy-quota-pill/releases)
 
-WorkBuddy 配额小窗是一个显示 WorkBuddy 各模型周期（通常为 24 小时）额度使用情况的特化小工具。
+WorkBuddy 配额胶囊是一个显示 WorkBuddy 各模型周期（通常为 24 小时）额度使用情况的特化小工具。
 它能读取服务端随每轮响应下发的额度使用百分比（原始值）并直接呈现给我们，同时提供大概多久用完周期配额的预测。
 
 它小巧安全，不联网，不上传，不碰账号，不改文件，无第三方依赖，解压即用。但它能准确显示各模型本周期的额度用量，辅助你安排 AI 使用，避免因突发限额打断思路。

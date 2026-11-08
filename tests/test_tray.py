@@ -252,7 +252,7 @@ def test_summary():
         rep(m("a", 30, "warn", eta=2.0)))[0], lines)
     err = qt.summary_lines({"models": [], "error": "没数据"})
     check("错误走单行", len(err) == 1 and "没数据" in err[0], err)
-    check("空模型不返回空列表", qt.summary_lines({"models": []}) == ["配额哨兵：暂无数据"])
+    check("空模型不返回空列表", qt.summary_lines({"models": []}) == ["配额胶囊：暂无数据"])
 
     t1, t2 = qt.error_texts("未找到配额快照（是否还没用 WorkBuddy 跑过对话？）")
     check("空数据错误被压成短句", t1 == "还没有配额快照" and "自动出现" in t2, (t1, t2))

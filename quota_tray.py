@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-WorkBuddy 配额哨兵 · 右下角常驻小窗
+WorkBuddy 配额胶囊 · 右下角常驻小窗
 ==================================
 展示层：所有数字都来自 quota_watch.build_report()，本文件不重复任何判定逻辑，
 也不碰配额快照的解析与取整口径。
@@ -329,12 +329,12 @@ def summary_lines(rep):
     判决语直接复用 row_texts，保证小窗和命令行不会各说各话。
     """
     if rep.get("error"):
-        return ["配额哨兵：" + rep["error"]]
+        return ["配额胶囊：" + rep["error"]]
     out = []
     for r in rep.get("models") or []:
         name, pct, sub = row_texts(r)
         out.append(f"[{LEVEL_CN.get(r['level'], r['level'])}] {name} {pct} · {sub}")
-    return out or ["配额哨兵：暂无数据"]
+    return out or ["配额胶囊：暂无数据"]
 
 
 class Lifecycle:
@@ -1129,7 +1129,7 @@ class TrayWindow:
 
         self.root = tk.Tk()
         self.root.withdraw()
-        self.root.title("配额哨兵")
+        self.root.title("配额胶囊")
         # pythonw 下 sys.stderr 是 None：Tk 回调一抛异常，默认处理器写
         # traceback 时自己就会炸，整个进程跟着消失（无痕死亡）。统一改为
         # 落盘日志，异常不再致命。
@@ -1394,7 +1394,7 @@ class TrayWindow:
             name = short_model(row.get("model"))
             pct = f"{row.get('percent_used', 0):g}%"
         else:
-            name, pct = "配额哨兵", "—"
+            name, pct = "配额胶囊", "—"
         try:
             name = self._elide(self.f["pillname"], name, self.px(86))
         except Exception:
@@ -1586,7 +1586,7 @@ class TrayWindow:
         pad = self.px(self.PAD)
         cy = y0 + self.px(self.HEAD_H) // 2
 
-        c.create_text(x0 + pad, cy, anchor="w", text="配额哨兵",
+        c.create_text(x0 + pad, cy, anchor="w", text="配额胶囊",
                       font=self.f["head"], fill=p["text"])
 
         gen = (self.report.get("generated_at") or "").split(" ")[-1]
@@ -1716,7 +1716,7 @@ class TrayWindow:
     def _render_pill(self):
         """收起态：一枚胶囊，只有状态灯和百分比，占位极小。
 
-        灯色取**全场最危险**档位而不是最近模型的档位 —— 哨兵的职责是
+        灯色取**全场最危险**档位而不是最近模型的档位 —— 本工具的职责是
         「告诉你哪个先撞墙」：最近用的模型哪怕闲着，只要有模型快到上限，
         收起态也必须亮红。文字仍显示最近对话的模型 + 它自己的百分比。
 
@@ -2439,7 +2439,7 @@ class ReportWindow:
         self.pal = app.pal
         self.top = tk.Toplevel(app.root)
         self.top.withdraw()
-        self.top.title("配额哨兵 · 完整报告")
+        self.top.title("配额胶囊 · 完整报告")
         try:
             self.top.overrideredirect(True)
             self.top.attributes("-transparentcolor", C_KEY)
@@ -2564,13 +2564,13 @@ class ReportWindow:
         cy = sh + head_h // 2
         c.create_line(sh + px(1), sh + head_h - px(1),
                       w - sh - px(1), sh + head_h - px(1), fill=p["edge_soft"])
-        c.create_text(pad + sh, cy, anchor="w", text="配额哨兵 · 完整报告",
+        c.create_text(pad + sh, cy, anchor="w", text="配额胶囊 · 完整报告",
                       font=self.f["title"], fill=p["head_fg"])
 
         # 位置被拖动过：标题右侧浮出一枚「保存为默认位置」chip —— 位置只在这里固化，
         # 不点它下次打开还回旧位置。这样误拖一下不会改坏已保存的布局。
         if self._pos_dirty:
-            tw = self.f["title"].measure("配额哨兵 · 完整报告")
+            tw = self.f["title"].measure("配额胶囊 · 完整报告")
             bx0 = pad + sh + tw + px(14)
             bx1 = bx0 + px(118)
             by0, by1 = cy - px(11), cy + px(11)
@@ -3020,7 +3020,7 @@ def tkfont_font(tk, family, size, weight="normal"):
 
 def build_parser():
     import argparse
-    ap = argparse.ArgumentParser(description="WorkBuddy 配额哨兵 · 右下角常驻小窗")
+    ap = argparse.ArgumentParser(description="WorkBuddy 配额胶囊 · 右下角常驻小窗")
     ap.add_argument("--print", dest="print_only", action="store_true",
                     help="不开窗，只把摘要行打到 stdout")
     ap.add_argument("--which", action="store_true", help="列出本机解释器及 tkinter 状态")

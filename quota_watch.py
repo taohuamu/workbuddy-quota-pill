@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-WorkBuddy 模型配额哨兵
+WorkBuddy 模型配额胶囊
 =====================
 从本机 WorkBuddy 会话记录中读取**官方下发的实时配额快照**
 (providerData.rawUsage.quota)，按模型汇总并推算触限时间，
@@ -326,7 +326,7 @@ def print_table(rep):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="WorkBuddy 模型配额哨兵")
+    ap = argparse.ArgumentParser(description="WorkBuddy 模型配额胶囊")
     ap.add_argument("--json", action="store_true", help="输出 JSON")
     ap.add_argument("--window", type=int, default=60, help="增速统计窗口（分钟，默认 60）")
     ap.add_argument("--warn", type=float, default=3.0, help="预计触限小于该小时数即告警（默认 3）")
