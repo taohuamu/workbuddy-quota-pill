@@ -1,4 +1,4 @@
-# WorkBuddy-Quota-Pill
+# WorkBuddy Quota Pill
 
 [简体中文](README.md) · [English](README.en.md)
 
