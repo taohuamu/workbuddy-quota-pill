@@ -1,4 +1,4 @@
-# WorkBuddy 配额小窗
+# WorkBuddy 配额哨兵
 
 [简体中文](README.md) · [English](README.en.md)
 
