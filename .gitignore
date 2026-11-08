@@ -7,8 +7,8 @@ venv/
 build/
 
 # ── 产物与临时文件 ──────────────────────────────────────────────────
-# tools/package.py 实际输出到仓库上一级的 ../dist，这条只是兜底：
-# 万一哪天把打包目录改回仓库内，别让 zip 进版本库
+# tools/package.py 输出到仓库内的 dist/（OUT_ROOT = 项目根/dist），
+# 里面是 zip 和一份解压副本，都不该进版本库
 dist/
 # delivery/ 是评审用的截图与交付说明
 delivery/
