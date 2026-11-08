@@ -3,8 +3,11 @@
 必用这个而不是屏幕截图：分层窗口（-transparentcolor）用 BitBlt 抓出来是全黑的。
 
 用法:
-    python tools/preview.py out.bmp [--dark] [--pill] [--report] [--hover]
+    python tools/preview.py out.bmp [--dark] [--pill] [--report] [--hover] [--full]
                                     [--home <伪造的 WORKBUDDY_HOME>] [--max-rows N]
+
+--full 关掉「展开时不压输入框」，卡片按设计宽度展开 —— 截图用，避免宽度随
+当时输入框的位置变化。
 """
 import ctypes
 import os
@@ -30,6 +33,9 @@ if PILL:
 REPORT = "--report" in rest
 if REPORT:
     rest.remove("--report")
+FULL = "--full" in rest
+if FULL:
+    rest.remove("--full")
 if "--home" in rest:
     i = rest.index("--home")
     os.environ["WORKBUDDY_HOME"] = rest[i + 1]
@@ -43,6 +49,11 @@ if dark:
 qt.enable_dpi_awareness()
 args = qt.build_parser().parse_args(["--always"] + rest)
 w = qt.TrayWindow(args)
+if FULL:
+    # 截图用：关掉「展开时不压输入框」，卡片按设计宽度 CARD_W 展开。
+    # 否则宽度取决于当时输入框右缘的位置，同一份代码在不同桌面下截出来宽窄不一。
+    w._avoid_input = False
+    w._plan_cache = None
 w.root.deiconify()
 w.root.update()
 
@@ -68,6 +79,12 @@ if REPORT:
     for _ in range(30):
         w.root.update()
         time.sleep(0.05)
+    # 截图不想要「保存为默认位置」那枚 chip —— 它只在拖过之后出现，属于交互状态
+    win = getattr(w, "_report_win", None)
+    if win is not None:
+        win._pos_dirty = False
+        win._render_head()
+        w.root.update()
 
 try:
     w.render()

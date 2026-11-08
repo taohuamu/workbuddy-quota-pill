@@ -35,13 +35,13 @@ WorkBuddy 对模型用量有两套限制：一个是账号级的积分，一个�
 
 WorkBuddy 打开后出现在右下角。显示最近一次对话用的模型以及这个模型在本周期的额度使用百分比。
 
-<p align="center"><img src="docs/images/pill.png" width="236" alt="胶囊态"></p>
+<p align="center"><img src="docs/images/pill.png" width="226" alt="胶囊态"></p>
 
 ### ② 小卡片
 
 鼠标触碰胶囊后展开。最多列 3 个模型，每个模型配一条进度条和一句判决语，直观呈现各模型的额度使用情况与预计耗尽时间。
 
-<p align="center"><img src="docs/images/card.png" width="378" alt="展开态"></p>
+<p align="center"><img src="docs/images/card.png" width="400" alt="展开态"></p>
 
 ### ③ 完整报告窗
 

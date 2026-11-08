@@ -33,13 +33,13 @@ I searched GitHub and elsewhere for something that fit my needs and habits, and 
 
 Appears in the bottom-right corner once WorkBuddy is open. Shows the model used in the most recent conversation and how much of its window it has consumed.
 
-<p align="center"><img src="docs/images/pill.png" width="236" alt="Pill state"></p>
+<p align="center"><img src="docs/images/pill.png" width="226" alt="Pill state"></p>
 
 ### 2. Card
 
 Expands on hover. Lists up to 3 models, each with a progress bar and a one-line verdict — usage and runway for each model, at a glance.
 
-<p align="center"><img src="docs/images/card.png" width="378" alt="Expanded card"></p>
+<p align="center"><img src="docs/images/card.png" width="400" alt="Expanded card"></p>
 
 ### 3. Full report
 
