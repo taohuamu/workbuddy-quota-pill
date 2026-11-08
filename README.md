@@ -51,7 +51,7 @@ WorkBuddy 打开后出现在右下角。显示最近一次对话用的模型以�
 
 WorkBuddy 在本地写有会话日志，其中记录了各模型的周期配额使用情况。本工具的数据来源于此。
 
-日志路径为 `%USERPROFILE%\.workbuddy\projects\<项目>\<会话>.jsonl`。每行对应一轮请求，其中`providerData.rawUsage.quota` 字段记录该轮响应的配额状态，包含 `model`、`percent`、`reset_at`、`shared_models` 四个键。
+日志路径为 `%USERPROFILE%\.workbuddy\projects\<项目>\<会话>.jsonl`。每行对应一轮请求，其中 `providerData.rawUsage.quota` 字段记录该轮响应的配额状态，包含 `model`、`percent`、`reset_at`、`shared_models` 四个键。
 
 `percent` 与 `reset_at` 由服务端随响应下发，客户端写入日志，本工具直接读取，不做任何加工。`percent` 为整数，粒度 1%，界面按原值显示，不做插值。
 
