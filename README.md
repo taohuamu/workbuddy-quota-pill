@@ -1,5 +1,7 @@
 # WorkBuddy 配额小窗
 
+[简体中文](README.md) · [English](README.en.md)
+
 ![license](https://img.shields.io/badge/license-MIT-white)
 ![python](https://img.shields.io/badge/python-3.8%2B-white)
 ![platform](https://img.shields.io/badge/platform-Windows-white)
