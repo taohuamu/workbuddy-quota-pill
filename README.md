@@ -47,14 +47,6 @@ WorkBuddy 打开后出现在右下角。显示最近一次对话用的模型以�
 
 <p align="center"><img src="docs/images/report.png" width="720" alt="完整报告窗"></p>
 
-## 安装流程
-
-前置要求：Windows 10 / 11，Python 3.8 以上。Python 官网安装包默认带 tkinter，不需要额外安装。
-
-1. 从 [Releases](https://github.com/taohuamu/workbuddy-quota-pill/releases) 下载压缩包，解压到任意目录（路径建议不含空格和中文）。
-2. 双击 `tray.bat`。
-3. 右键小窗，勾选「开机自动待命」。
-
 ## 工作原理
 
 WorkBuddy 在本地写有会话日志，其中记录了各模型的周期配额使用情况。本工具的数据来源于此。
@@ -92,6 +84,14 @@ WorkBuddy 退出后，本工具在 10 秒后自行结束进程，只剩看门狗
 | 点击卡片任意一行 | 打开完整报告窗 |
 | 拖动 | 横向纵向均可，位置需在右键菜单保存 |
 | 右键 | 刷新 / 完整报告 / 保存布局 / 恢复默认位置 / 各项开关 |
+
+## 安装流程
+
+前置要求：Windows 10 / 11，Python 3.8 以上。Python 官网安装包默认带 tkinter，不需要额外安装。
+
+1. 从 [Releases](https://github.com/taohuamu/workbuddy-quota-pill/releases) 下载压缩包，解压到任意目录（路径建议不含空格和中文）。
+2. 双击 `tray.bat`。
+3. 右键小窗，勾选「开机自动待命」。
 
 ## 更新流程
 
