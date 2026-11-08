@@ -69,12 +69,14 @@ WorkBuddy 打开后出现在右下角。显示最近一次对话用的模型，�
 
 ## 工作原理
 
-数据取自 WorkBuddy 的本地会话日志，路径为 `%USERPROFILE%\.workbuddy\projects\<项目>\<会话>.jsonl`。
-每行对应一轮请求，其中 `providerData.rawUsage.quota` 字段记录该轮响应的配额状态，包含
-`model`、`percent`、`reset_at`、`shared_models` 四个键。
+WorkBuddy 在本地写有会话日志，其中记录了各模型的周期配额使用情况。本工具的数据来源于此。
 
-`percent` 与 `reset_at` 由服务端随响应下发，客户端写入日志。本工具直接读取，不做二次推算。
-它不是从 token 数或历史 429 错误反推出来的估算值。`percent` 为整数，粒度为 1%。
+日志路径为 `%USERPROFILE%\.workbuddy\projects\<项目>\<会话>.jsonl`。每行对应一轮请求，其中
+`providerData.rawUsage.quota` 字段记录该轮响应的配额状态，包含 `model`、`percent`、`reset_at`、
+`shared_models` 四个键。
+
+`percent` 与 `reset_at` 由服务端随响应下发，客户端写入日志，本工具直接读取，不做任何计算。
+`percent` 为整数，粒度 1%，界面按原值显示，不做插值。
 
 在此基础上计算三项：
 
