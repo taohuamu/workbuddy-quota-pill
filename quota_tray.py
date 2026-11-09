@@ -1260,22 +1260,25 @@ class TrayWindow:
         白字 + 一条细灰边，这条恒不成立，于是校准永远量不到，程序一直沿用
         早前误测的假值（issue #1）。现在不再要求实心，只要「竖线」即可。
 
-        另一条硬约束：扫描带的右端截在窗口左缘之前。窗口是盖在宿主界面上的，
-        输入框右缘不可能跑到窗口右边去；采样点一旦落进自己的窗口，会把自己的
-        投影/边角量成边框（表现为卡片越校准越窄）。
+        另一条硬约束：扫描带的右端停在「胶囊左缘 − 自身阴影 − 6px」。窗口是分层
+        透明窗，胶囊左边那一大片虽然属于窗口，但画的是全透明，截屏拿到的是宿主
+        界面本身，所以可以照常采样。反过来，一旦采到胶囊自己的投影，那条渐变的
+        竖边就会被当成边框（表现为卡片越校准越窄）。
+
+        不能按**窗口左缘**截断：窗口比胶囊宽得多（展开尺寸），左缘往往已经落在
+        输入框右缘的左边 —— 从那里截断就永远够不到真正的边框，只能量到左侧无关
+        的竖线（实测偏差 94px，卡片因此压到输入框上）。
         """
         if not self._avoid_input or os.name != "nt":
             return None
         try:
             wa = self.wa()
             # 窗口恒为展开尺寸，胶囊贴在右下角：扫描线按胶囊实际位置取
-            _, ph = self._pill_size()
-            sh2 = self.px(self.SHADOW) * 2
-            y = self.origin[1] + self.win_h - sh2 - ph // 2
-            # 扫描带右端停在窗口左缘之前。窗口是盖在宿主界面上的，采样点一旦
-            # 落进自己的窗口，背景色、特征列都会变成自己的像素 —— 早期版本就是
-            # 这样把自己的边角量成了输入框边框。
-            x_end = int(min(self.origin[0] - self.px(4), wa[2] - self.px(14)))
+            pw, ph = self._pill_size()
+            sh = self.px(self.SHADOW)
+            y = self.origin[1] + self.win_h - sh * 2 - ph // 2
+            pill_left = self.origin[0] + self.win_w - sh * 2 - pw
+            x_end = int(min(pill_left - sh - self.px(6), wa[2] - self.px(14)))
             x_start = int(max(wa[0] + self.px(40), x_end - self.px(720)))
             if x_end - x_start < self.px(160):
                 return None

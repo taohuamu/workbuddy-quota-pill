@@ -508,15 +508,23 @@ def test_probe_edge():
         return (252, 252, 252)
     check("整片同色时返回 None", run(blank) is None)
 
-    def inside_window(x, y):
-        # 竖线落在自己窗口内部：扫描带根本不该覆盖到它
-        return (120, 120, 120) if x == 2010 else (251, 251, 251)
-    got = run(inside_window)
-    check("窗口内部的竖线不会被采样", got is None, got)
+    def in_shadow(x, y):
+        # 竖线落在胶囊自己的投影里：扫描带必须已经停在它左边
+        return (120, 120, 120) if x == 2160 else (251, 251, 251)
+    got = run(in_shadow)
+    check("胶囊投影内的竖线不会被采样", got is None, got)
+
+    def under_card(x, y):
+        # 卡片展开后会盖住的位置：收起态那里是透明的，可以照常采样
+        return (213, 213, 213) if x == 2100 else (255, 255, 255) if x < 2100 else (251, 251, 251)
+    got = run(under_card)
+    check("卡片将要覆盖的区域仍可采样（分层窗透明处看得到宿主界面）", got == 2100, got)
 
     run(light)
-    check("扫描带不越过窗口左缘",
-          all(c[2] <= Fake.origin[0] - Fake.px(4) for c in calls), calls[:2])
+    # s=1，px(v)==v：胶囊左缘 = 窗口左缘 + 窗宽 − 两侧阴影 − 胶囊宽
+    pill_left = 2000 + 400 - 5 * 2 - 225
+    check("扫描带停在胶囊左缘之前（避开自身阴影）",
+          all(c[2] <= pill_left - 5 for c in calls), calls[:2])
 
     check("关掉避让时不读屏", qt.TrayWindow._probe_edge(
         type("F", (Fake,), {"_avoid_input": False})()) is None)
