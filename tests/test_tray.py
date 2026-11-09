@@ -450,6 +450,78 @@ def test_latest_row():
     check("空报告返回 None", qt.latest_row({"models": []}) is None)
 
 
+def test_probe_edge():
+    """输入框右缘探测：浅色主题细线、深色实心、自捕获、文字干扰。
+
+    用假像素替换 grab_strip，几何按 100% 缩放构造，这样断言是确定性的，
+    不依赖跑测试那台机器的主题、分辨率和 WorkBuddy 窗口位置。
+    """
+    class Fake:
+        _avoid_input = True
+        SHADOW = 5
+        origin = (2000, 1200)      # 窗口左上角：扫描带必须停在它左边
+        win_w, win_h = 400, 286
+        s = 1
+        def px(self, v): return max(1, int(round(v * self.s)))
+        def wa(self): return (0, 0, 2560, 1528)
+        def _pill_size(self): return (225, 48)
+
+    calls = []
+
+    def run(painter):
+        def stub(x0, y, x1):
+            calls.append((x0, y, x1))
+            return [painter(x, y) for x in range(x0, x1)]
+        old = qt.grab_strip
+        qt.grab_strip = stub
+        try:
+            return qt.TrayWindow._probe_edge(Fake())
+        finally:
+            qt.grab_strip = old
+            calls.clear()
+
+    B = 1900
+
+    def light(x, y):
+        if x == B:
+            return (213, 213, 213)          # 白底 + 一条浅灰细边
+        return (255, 255, 255) if x < B else (251, 251, 251)
+
+    got = run(light)
+    check("浅色主题：白底细线也能量到", got == B, got)
+
+    def dark(x, y):
+        return (30, 30, 30) if x <= B else (251, 251, 251)
+    got = run(dark)
+    check("深色主题：实心块右缘", got == B, got)
+
+    def noisy(x, y):
+        if x == B:
+            return (213, 213, 213)
+        if x == B + 50 and y == 1452:        # 只出现在扫描中线的一列文字笔画
+            return (40, 40, 40)
+        return (255, 255, 255) if x < B else (251, 251, 251)
+    got = run(noisy)
+    check("单行文字笔画不冒充边框", got == B, got)
+
+    def blank(x, y):
+        return (252, 252, 252)
+    check("整片同色时返回 None", run(blank) is None)
+
+    def inside_window(x, y):
+        # 竖线落在自己窗口内部：扫描带根本不该覆盖到它
+        return (120, 120, 120) if x == 2010 else (251, 251, 251)
+    got = run(inside_window)
+    check("窗口内部的竖线不会被采样", got is None, got)
+
+    run(light)
+    check("扫描带不越过窗口左缘",
+          all(c[2] <= Fake.origin[0] - Fake.px(4) for c in calls), calls[:2])
+
+    check("关掉避让时不读屏", qt.TrayWindow._probe_edge(
+        type("F", (Fake,), {"_avoid_input": False})()) is None)
+
+
 if __name__ == "__main__":
     print("quota-tray 逻辑测试")
     test_text()
@@ -471,5 +543,6 @@ if __name__ == "__main__":
     test_layout_state()
     test_wb_pid_cache()
     test_latest_row()
+    test_probe_edge()
     print(f"\n通过 {PASS}，失败 {FAIL}")
     sys.exit(1 if FAIL else 0)

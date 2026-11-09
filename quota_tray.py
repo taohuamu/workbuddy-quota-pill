@@ -1248,50 +1248,69 @@ class TrayWindow:
     def _probe_edge(self):
         """量输入框右边缘的屏幕 x 坐标；量不到返回 None。
 
-        做法：在胶囊中线高度、胶囊左侧那一段横向截一行像素，从右往左找第一个
-        「和背景色不同」的点 —— 那就是输入框的右边框。
+        做法：在胶囊中线高度附近取三条横线，逐列统计「与背景色显著不同」
+        出现了几次，从右往左找第一条**在多行上重复出现**的竖线 —— 那就是
+        输入框的右边框。
+
+        为什么不是单行扫描：单行像素分不清「边框」和「框内文字/图标」，
+        两者都只是「和背景不同」。而边框是竖的，在多行上位置一致，文字
+        笔画做不到 —— 这一条判据不依赖主题明暗。
+
+        早期版本假设「边框左侧 26px 是实心区域」，浅色主题下输入框是白底
+        白字 + 一条细灰边，这条恒不成立，于是校准永远量不到，程序一直沿用
+        早前误测的假值（issue #1）。现在不再要求实心，只要「竖线」即可。
+
+        另一条硬约束：结果必须落在自己窗口左缘的左侧。窗口是盖在宿主界面
+        上的，输入框右缘不可能跑到窗口右边去；不挡的话会把自身的投影/边角
+        量成边框（表现为卡片越校准越窄）。
         """
         if not self._avoid_input or os.name != "nt":
             return None
         try:
             wa = self.wa()
             # 窗口恒为展开尺寸，胶囊贴在右下角：扫描线按胶囊实际位置取
-            pw, ph = self._pill_size()
+            _, ph = self._pill_size()
             sh2 = self.px(self.SHADOW) * 2
             y = self.origin[1] + self.win_h - sh2 - ph // 2
-            x_end = int(min(self.origin[0] + self.win_w - sh2 - pw - self.px(6),
-                            wa[2] - self.px(14)))
+            # 扫描带右端停在窗口左缘之前。窗口是盖在宿主界面上的，采样点一旦
+            # 落进自己的窗口，背景色、特征列都会变成自己的像素 —— 早期版本就是
+            # 这样把自己的边角量成了输入框边框。
+            x_end = int(min(self.origin[0] - self.px(4), wa[2] - self.px(14)))
+            x_start = int(max(wa[0] + self.px(40), x_end - self.px(720)))
             x_start = int(max(wa[0] + self.px(40), x_end - self.px(720)))
             if x_end - x_start < self.px(160):
                 return None
-            cols = grab_strip(x_start, y, x_end)
-            if not cols or len(cols) < 40:
-                return None
-            lum = [(c[0] + c[1] + c[2]) // 3 for c in cols]
-            if max(lum) - min(lum) < 6:
-                return None            # 整条同色（息屏 / 纯色桌面），读了也没用
+
+            span = max(self.px(6), ph // 4)
+            rows = []
+            for dy in (-span, 0, span):
+                strip = grab_strip(x_start, int(y + dy), x_end)
+                if strip and len(strip) >= 40:
+                    rows.append(strip)
+            if len(rows) < 2:
+                return None            # 抓不到像素（息屏 / 非 Windows / 被遮挡）
 
             def far(c, b):
                 return abs(c[0] - b[0]) + abs(c[1] - b[1]) + abs(c[2] - b[2])
 
-            bg = cols[-1]
-            for i in range(len(cols) - 2, -1, -1):
-                if far(cols[i], bg) <= 10:
+            width = min(len(r) for r in rows)
+            bg = [r[-1] for r in rows]
+            hits = []
+            for j in range(width):
+                # 阈值 14：浅色主题下「白卡片 255」与「页面底色 251」只差 12，
+                # 门槛放宽会被算成特征，右边框就会被误判到卡片内部。
+                hits.append(sum(1 for r, b in zip(rows, bg) if far(r[j], b) > 14))
+            if max(hits) == 0:
+                return None            # 整片同色（纯色桌面 / 空白画布），读了也没用
+
+            need = 2 if len(rows) >= 3 else 1
+            for j in range(width - 2, -1, -1):
+                if hits[j] < need:
                     continue
-                lead = cols[max(0, i - 26):i]
-                # 边界左侧必须是一段实心区域，否则只是细线（滚动条、分隔线），不可信
-                if sum(1 for c in lead if far(c, bg) > 4) < 18:
-                    return None
-                # 再验一层：真输入框宽 1300px，左侧 300px 应该整片都是「非背景」。
-                # 小窗口（比如另一个小窗实例、一个弹层）只有几十像素，会被这条挡掉 ——
-                # 否则扫描线一旦压到别的窗口边上，就会量出一个假边界。
-                wide = cols[max(0, i - 300):max(0, i - 10)]
-                if wide:
-                    solid = sum(1 for c in wide if far(c, bg) > 4)
-                    if solid < len(wide) * 0.6:
-                        return None
-                edge = x_start + i
-                return edge if edge > wa[0] + self.px(80) else None
+                edge = x_start + j
+                if edge <= wa[0] + self.px(80):
+                    return None        # 已经扫到工作区左侧，再左没有意义
+                return edge
             return None
         except Exception:
             return None
