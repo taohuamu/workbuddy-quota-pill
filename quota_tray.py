@@ -1260,9 +1260,9 @@ class TrayWindow:
         白字 + 一条细灰边，这条恒不成立，于是校准永远量不到，程序一直沿用
         早前误测的假值（issue #1）。现在不再要求实心，只要「竖线」即可。
 
-        另一条硬约束：结果必须落在自己窗口左缘的左侧。窗口是盖在宿主界面
-        上的，输入框右缘不可能跑到窗口右边去；不挡的话会把自身的投影/边角
-        量成边框（表现为卡片越校准越窄）。
+        另一条硬约束：扫描带的右端截在窗口左缘之前。窗口是盖在宿主界面上的，
+        输入框右缘不可能跑到窗口右边去；采样点一旦落进自己的窗口，会把自己的
+        投影/边角量成边框（表现为卡片越校准越窄）。
         """
         if not self._avoid_input or os.name != "nt":
             return None
@@ -1276,7 +1276,6 @@ class TrayWindow:
             # 落进自己的窗口，背景色、特征列都会变成自己的像素 —— 早期版本就是
             # 这样把自己的边角量成了输入框边框。
             x_end = int(min(self.origin[0] - self.px(4), wa[2] - self.px(14)))
-            x_start = int(max(wa[0] + self.px(40), x_end - self.px(720)))
             x_start = int(max(wa[0] + self.px(40), x_end - self.px(720)))
             if x_end - x_start < self.px(160):
                 return None
