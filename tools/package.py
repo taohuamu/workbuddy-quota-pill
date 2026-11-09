@@ -15,7 +15,7 @@ import sys
 import zipfile
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT_ROOT = os.path.join(os.path.dirname(HERE), "dist")
+OUT_ROOT = os.path.join(HERE, "dist")
 TOP = "quota-watch"
 
 FILES = [
