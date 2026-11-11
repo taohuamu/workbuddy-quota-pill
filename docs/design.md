@@ -1,6 +1,6 @@
 # 设计档案
 
-> 实现细节、设计取舍、踩过的坑。快速上手看仓库根目录的 [README](../README.zh.md)。
+> 实现细节、设计取舍、踩过的坑。快速上手看仓库根目录的 [README](../README.md)。
 
 读本机 WorkBuddy 会话日志里**服务端随响应下发的配额快照**，按模型算出「会不会在配额重置前耗尽」，
 用于在额度被打满之前提前换模型或收尾，而不是事后统计已经花了多少。
@@ -483,8 +483,8 @@ quota-watch/
 ├─ tests/test_tray.py  # 小窗纯逻辑测试（不弹窗、不需要 tkinter）
 ├─ run.bat             # 命令行报告，双击运行
 ├─ tray.bat            # 拉起小窗（自动找带 tkinter 的解释器）
-├─ README.md           # 英文首页（GitHub 默认展示）
-└─ README.zh.md        # 中文说明
+├─ README.md           # 中文首页（GitHub 默认展示）
+└─ README.en.md        # 英文说明
 ```
 
 ## 测试

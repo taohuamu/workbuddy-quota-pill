@@ -1,133 +1,145 @@
-# WorkBuddy Quota Pill
+# WorkBuddy 配额胶囊
 
-**English** · [简体中文](README.zh.md)
+**简体中文** · [English](README.en.md)
 
 ![license](https://img.shields.io/badge/license-MIT-white)
 ![python](https://img.shields.io/badge/python-3.8%2B-white)
 ![platform](https://img.shields.io/badge/platform-Windows-white)
 [![release](https://img.shields.io/github/v/release/taohuamu/workbuddy-quota-pill?include_prereleases&label=release)](https://github.com/taohuamu/workbuddy-quota-pill/releases)
 
-A small, single-purpose desktop tool that shows how much of each WorkBuddy model's quota window (usually 24 hours) has been used. It reads the usage percentage the server reports with every response — the raw value, not an estimate — and puts it on your desktop, together with the runway: how long that quota will last at your current pace.
+WorkBuddy 配额胶囊是一个显示 WorkBuddy 各模型周期（通常为 24 小时）额度使用情况的特化小工具。
+它能读取服务端随每轮响应下发的额度使用百分比（原始值）并直接呈现给我们，同时提供大概多久用完周期配额的预测。
 
-It's small and safe: no network access, no uploads, no account, no changes to your files, no third-party dependencies. Unzip and run. What you get is an accurate view of where each model stands in its current window, so you can plan your AI usage instead of being cut off mid-task.
+它小巧安全，不联网，不上传，不碰账号，不改文件，无第三方依赖，解压即用。但它能准确显示各模型本周期的额度用量，辅助你安排 AI 使用，避免因突发限额打断思路。
 
-**[Download latest](https://github.com/taohuamu/workbuddy-quota-pill/releases)** ·
-[Usage guide (Chinese)](使用说明.md) ·
-[Design notes](docs/design.md)
-
-> The interface is currently Chinese-only, and the screenshots below show it as-is.
+**[下载最新版](https://github.com/taohuamu/workbuddy-quota-pill/releases)** ·
+[使用说明](使用说明.md) ·
+[设计档案](docs/design.md)
 
 ---
 
-## Why this exists
+## 开发缘起
 
-WorkBuddy meters model usage in two separate ways: account-level credits, and a per-model quota window. Run out of credits and the whole workflow stops. Run out of one model's quota and the request dies while the model is still thinking — you wait for the reset, or switch to another model.
+WorkBuddy 对模型用量有两套限制：一个是账号级的积分，一个是每个模型各自的周期配额。
+如果是积分耗尽，整个工作流都会停下来；如果是某个模型的配额耗尽，则会在模型思考时中断，等配额重置或切到别的模型后才能继续。
 
-Meanwhile, Profile → Usage only shows your credit balance and spending history. It can't tell you what percentage of a single model's window you've used right now. So the familiar scene: DeepSeek-v4.1-Flash is generating away, WorkBuddy suddenly reports "limit reached", and the work stops halfway — along with your train of thought.
+可是，WorkBuddy 的「个人中心 → 用量」只能看到积分余额和消耗明细，看不到单个模型此刻的额度用掉了百分之多少。于是，一个常见的情景出现了：正当我们的 DeepSeek-v4.1-Flash 充满激情地
+生成内容时，WorkBuddy 突然提示「已达上限」，导致我们工作和思路都被打断。
 
-I searched GitHub and elsewhere for something that fit my needs and habits, and didn't find one. So I built this: first for myself, then for everyone else using WorkBuddy who wants to see model quotas at a glance.
+为解决这个问题，我在 GitHub 等网站多次搜寻相关内容，但并没有找到符合我需求和习惯的工具。
+于是我做了这个小工具，来帮助我和其他使用 WorkBuddy 的人直观地看到模型使用配额。
 
-## Three forms
+## 三种形态
 
-### 1. Pill
+### ① 胶囊
 
-Appears in the bottom-right corner once WorkBuddy is open. Shows the model used in the most recent conversation and how much of its window it has consumed.
+WorkBuddy 打开后出现在右下角。显示最近一次对话用的模型以及这个模型在本周期的额度使用百分比。
 
-<p align="center"><img src="docs/images/pill.png" width="226" alt="Pill state"></p>
+<p align="center"><img src="docs/images/pill.png" width="226" alt="胶囊态"></p>
 
-### 2. Card
+### ② 小卡片
 
-Expands on hover. Lists up to 3 models, each with a progress bar and a one-line verdict — usage and runway for each model, at a glance.
+鼠标触碰胶囊后展开。最多列 3 个模型，每个模型配一条进度条和一句判决语，直观呈现各模型的额度使用情况与预计耗尽时间。
 
-<p align="center"><img src="docs/images/card.png" width="400" alt="Expanded card"></p>
+<p align="center"><img src="docs/images/card.png" width="400" alt="展开态"></p>
 
-### 3. Full report
+### ③ 完整报告窗
 
-Opens when you click any row of the card (or "Details" at its top right). Lists every model with usage in the current window, with its reset time, burn rate and runway, plus the tokens and credits spent within that window.
+点卡片上任意一行（或右上角「详情」）打开。列出当前周期内有消耗的模型，包含各自的重置时间、增速、触限预测，以及周期内的 token 与积分消耗。
 
-<p align="center"><img src="docs/images/report.png" width="720" alt="Full report window"></p>
+<p align="center"><img src="docs/images/report.png" width="720" alt="完整报告窗"></p>
 
-## How it works
+## 工作原理
 
-WorkBuddy writes session logs locally, and those logs record per-model quota usage. That is where this tool gets its data.
+WorkBuddy 在本地写有会话日志，其中记录了各模型的周期配额使用情况。本工具的数据来源于此。
 
-Log path: `%USERPROFILE%\.workbuddy\projects\<project>\<session>.jsonl`. Each line is one request, and its `providerData.rawUsage.quota` field holds the quota state for that response: `model`, `percent`, `reset_at`, `shared_models`.
+日志路径为 `%USERPROFILE%\.workbuddy\projects\<项目>\<会话>.jsonl`。每行对应一轮请求，其中 `providerData.rawUsage.quota` 字段记录该轮响应的配额状态，包含 `model`、`percent`、`reset_at`、`shared_models` 四个键。
 
-`percent` and `reset_at` are reported by the server with each response and written to the log by the client. This tool reads them as-is, without processing of any kind. `percent` is an integer with 1% granularity; the interface shows it unmodified, with no interpolation.
+`percent` 与 `reset_at` 由服务端随响应下发，客户端写入日志，本工具直接读取，不做任何加工。`percent` 为整数，粒度 1%，界面按原值显示，不做插值。
 
-To estimate the runway, it derives three things from that:
+为预测触限时间，本工具在此基础上计算三项：
 
-1. Window: `reset_at` minus 24 hours — only records inside that window count
-2. Burn rate: the change in `percent` across the window, divided by elapsed time (percentage points per hour)
-3. Runway: extrapolate the burn rate to 100% and estimate the time remaining
+1. 周期窗口：`reset_at` 减 24 小时，仅统计该区间内的记录
+2. 增速：区间内首尾 `percent` 之差除以时长
+3. 触限预测：按当前增速外推至 100%，估算剩余时间
 
-When the sample window is too short or there are too few data points, no runway is shown; the report says "only N minutes of samples, no forecast yet".
+样本区间过短或数据点不足时不做预测，报告窗会标注「样本仅 N 分钟，暂不预测」。
 
-## Startup and shutdown
+## 启停机制
 
-With 「开机自动待命」(start with Windows) enabled, a watchdog launches at boot and checks every 5 seconds whether WorkBuddy is running.
+若启用「开机自动待命」，开机时启动看门狗，每 5 秒检查一次 WorkBuddy 是否在运行。
 
-While WorkBuddy isn't running, nothing appears.
+WorkBuddy 没启动的时候，它不出现。
 
-When WorkBuddy starts, the watchdog picks it up on its next check and launches this tool; the whole sequence takes about 3 seconds. While running, the tool probes state every 1.5 seconds; after more than 3 seconds in another application it hides itself, and comes back as soon as you return to WorkBuddy.
+WorkBuddy 启动后，看门狗在下一次检查时发现并启动本工具，整个流程约 3 秒。运行期间，本工具每 1.5 秒探测一次状态；切到其他应用超过 3 秒，它自动隐藏，回到 WorkBuddy 后随即恢复。
 
-When WorkBuddy exits, the tool ends itself 10 seconds later, leaving only the watchdog waiting. The watchdog does not guard the tool: it queries the process list every 5 seconds and sleeps the rest of the time. Its only job is to launch the tool when WorkBuddy starts.
+WorkBuddy 退出后，本工具在 10 秒后自行结束进程，只剩看门狗继续等待。看门狗不守护本工具，每 5 秒查询一次进程表，其余时间处于休眠，职责只有一条：WorkBuddy 启动时把本工具拉起来。
 
-Without 「开机自动待命」, nothing is waiting — double-click `tray.bat` after each boot.
+未启用「开机自动待命」时，每次开机需要手动双击 `tray.bat`。
 
-## Controls
+## 操作说明
 
-| Action | Result |
+| 操作 | 效果 |
 |---|---|
-| Hover the pill | Expands into the card |
-| Move the mouse away | Collapses after 2.2 seconds |
-| Click any row of the card | Opens the full report |
-| Drag | Both axes; save the position from the right-click menu |
-| Right-click | Refresh / Full report / Save layout / Reset position / toggles |
+| 鼠标触碰胶囊 | 展开卡片 |
+| 移开鼠标 | 2.2 秒后自动收回 |
+| 点击卡片任意一行 | 打开完整报告窗 |
+| 拖动 | 横向纵向均可，位置需在右键菜单保存 |
+| 右键 | 刷新 / 完整报告 / 保存布局 / 恢复默认位置 / 各项开关 |
 
-## Installation
+## 安装流程
 
-Requirements: Windows 10 / 11 and Python 3.8+. The official Python installer bundles tkinter, so nothing extra is needed.
+前置要求：Windows 10 / 11，Python 3.8 以上。Python 官网安装包默认带 tkinter，不需要额外安装。
 
-1. Download the archive from [Releases](https://github.com/taohuamu/workbuddy-quota-pill/releases) and unzip it anywhere (avoid spaces and non-ASCII characters in the path).
-2. Double-click `tray.bat`.
-3. Right-click the tool and check 「开机自动待命」(start with Windows).
+1. 从 [Releases](https://github.com/taohuamu/workbuddy-quota-pill/releases) 下载压缩包，解压到任意目录（路径建议不含空格和中文）。
+2. 双击 `tray.bat`。
+3. 右键小窗，勾选「开机自动待命」。
 
-## Updating
+## 更新流程
 
-1. Right-click the tool and choose Exit.
-2. Unzip the new version over the old directory.
-3. Double-click `tray.bat`.
+1. 右键小窗，选择「退出」。
+2. 解压新版本，覆盖原目录。
+3. 双击 `tray.bat`。
 
-Step 1 is required. If the old instance is still running, the new one exits immediately because of the single-instance lock, and the update looks like it never took effect.
+注意：第 1 步不能省。旧实例还在运行时，新实例会因单实例限制直接退出，看起来像更新未生效。
 
-## FAQ
+## 常见疑问
 
-1. **Some models report no usage (e.g. GLM-5.3-Flash)**: their entries in the local log have no `quota` field, so there is no percentage to read. From experience, these models likely have no window limit.
-2. **A model that was just reset and hasn't been used doesn't appear**: showing an empty 0% model serves no purpose.
-3. **The position drifts after changing display scaling or monitors**: right-click → Recalibrate position. It collapses the card first, then measures the input box edge again, and self-checks the result.
-4. **The window is not a calendar day**: it is a rolling 24 hours, not a midnight reset. Each model's end time comes from the server, counted from first use, and differs between models. The report shows it directly: "resets in 3.5 h".
-5. **The pill doesn't appear**: it stays hidden while WorkBuddy isn't running. If WorkBuddy is running and it's still missing, check the last lines of `%LOCALAPPDATA%\quota-watch\tray.log`.
-6. **Double-clicking `tray.bat` does nothing**: usually Python without tkinter. Run `python quota_tray.py --which` in the unzipped directory; the output should include a line starting with `tk`.
-7. **The number doesn't match my credit balance**: this is one model's usage in its current window, not the account credit balance — different meters. `percent` is an integer at 1% granularity, so it can still read 0% after a while of use.
-8. **Where is the data stored, and is anything uploaded?** All of it comes from local session logs. On the international build the path is `~/.workbuddy-ai/projects/...`; the `WORKBUDDY_HOME` environment variable overrides the root. The tool only reads files — it writes nothing to WorkBuddy's data and makes no network requests; everything stays on your machine.
+1. **GLM-5.3-Flash 等部分模型不显示用量**：本地日志中没有 `quota` 字段，取不到百分比，
+   结合使用经验猜测是没有周期限额。
+2. **刚重置、未使用的模型不显示**：显示一个 0% 的空模型没有意义。
+3. **换过缩放比例或显示器后位置可能偏**：右键「重新校准位置」。它会把卡片先收起来，
+   再量一次输入框边缘，量完还会自检。
+4. **「周期」不是自然日**：周期为 24 小时滚动窗口，不是每天 0 点重置。各模型的结束时刻由
+   服务端下发，从首次使用起算，互不相同。报告窗直接显示「3.5 小时后重置」。
+5. **胶囊不出现**：WorkBuddy 未运行时它不显示。若 WorkBuddy 正在运行仍无显示，查看
+   `%LOCALAPPDATA%\quota-watch\tray.log` 末尾几行。
+6. **双击 `tray.bat` 没有反应**：多为 Python 缺少 tkinter。在解压目录运行
+   `python quota_tray.py --which`，输出中应含以 `tk` 开头的一行。
+7. **数字和账号余额对不上**：这里显示的是单个模型在本周期用掉的额度，不是账号积分余额，
+   两者口径不同。`percent` 为整数，粒度 1%，因此会出现「用了一会儿仍显示 0%」的情况。
+8. **数据存放在哪、会不会上传**：全部来自本机的会话日志。国际版路径为
+   `~/.workbuddy-ai/projects/...`，可用环境变量 `WORKBUDDY_HOME` 覆盖根目录。本工具只读文件，
+   不写 WorkBuddy 的任何数据，也没有任何网络请求；所有数据都留在你自己的机器上。
 
-## Development
+## 开发
 
 ```bash
-python tests/test_tray.py     # presentation layer, 160 checks
-python tests/test_core.py     # data layer, 56 checks
-python tools/package.py       # build the beta archive into dist/
-python tools/preview.py out.bmp --pill   # offscreen render for a screenshot
+python tests/test_tray.py     # 展示层纯逻辑，168 项
+python tests/test_core.py     # 数据层，56 项
+python tools/package.py       # 打内测包到 dist/
+python tools/preview.py out.bmp --pill   # 离屏渲染一张图
 ```
 
-The graphical part has no automated assertions — layered windows (`-transparentcolor`) are hard to reproduce headless, so those judgements rely on images captured by `tools/preview.py`.
+图形部分没有自动断言 —— 分层窗口（`-transparentcolor`）的行为很难在无头环境复现，
+相关判断靠人工看 `tools/preview.py` 抓出来的图。
 
-See [`docs/design.md`](docs/design.md) for details (Chinese).
+详情请见 [`docs/design.md`](docs/design.md)。
 
-## Disclaimer
+## 声明
 
-A third-party tool, not affiliated with Tencent or WorkBuddy. It has no technical support or authorization of any kind from them, and only reads log files that already exist on your machine.
+第三方工具，与腾讯 / WorkBuddy 官方无关。本项目未获得任何形式的技术支持或授权，
+只读取本机已经存在的日志文件。
 
 ## License
 
