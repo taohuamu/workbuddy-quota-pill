@@ -53,6 +53,8 @@ WorkBuddy writes session logs locally, and those logs record per-model quota usa
 
 Log path: `%USERPROFILE%\.workbuddy\projects\<project>\<session>.jsonl`. Each line is one request, and its `providerData.rawUsage.quota` field holds the quota state for that response: `model`, `percent`, `reset_at`, `shared_models`.
 
+Not every record carries `quota`: measured on this machine, about half of deepseek's records do, about 8% of hy4's, and none of GLM's. The percentage is therefore a series of discrete samples, with no interpolation and no averaging.
+
 `percent` and `reset_at` are reported by the server with each response and written to the log by the client. This tool reads them as-is, without processing of any kind. `percent` is an integer with 1% granularity; the interface shows it unmodified, with no interpolation.
 
 To estimate the runway, it derives three things from that:
@@ -103,10 +105,15 @@ Step 1 is required. If the old instance is still running, the new one exits imme
 
 ## FAQ
 
-1. **Some models report no usage (e.g. GLM-5.3-Flash)**: their entries in the local log have no `quota` field, so there is no percentage to read. From experience, these models likely have no window limit.
-2. **A model that was just reset and hasn't been used doesn't appear**: showing an empty 0% model serves no purpose.
-3. **The position drifts after changing display scaling or monitors**: right-click → Recalibrate position. It collapses the card first, then measures the input box edge again, and self-checks the result.
-4. **The window is not a calendar day**: it is a rolling 24 hours, not a midnight reset. Each model's end time comes from the server, counted from first use, and differs between models. The report shows it directly: "resets in 3.5 h".
+1. **GLM-5.3-Flash shows no usage**: its entries in the local log have no `quota` field, so there is no percentage to read. deepseek and hy4 do report one over the same period, so this is a per-model difference, not a missed read.
+2. **hy4's number stays put for a long time**: free models do have a 24-hour window — measured up to 60% before a reset — but only about 8% of their responses carry `quota`, so the percentage updates sparsely. When samples are too thin, the report says "no forecast yet".
+3. **A model that was just reset and hasn't been used doesn't appear**: showing an empty 0% model serves no purpose.
+4. **The position drifts after changing display scaling or monitors**: right-click → Recalibrate position. It collapses the card first, then measures the input box edge again, and self-checks the result.
+5. **The window is not a calendar day**: it is a rolling 24 hours, not a midnight reset. Each model's end time comes from the server, counted from first use, and differs between models. The report shows it directly: "resets in 3.5 h".
+6. **The pill doesn't appear**: it stays hidden while WorkBuddy isn't running. If WorkBuddy is running and it's still missing, check the last lines of `%LOCALAPPDATA%\quota-watch\tray.log`.
+7. **Double-clicking `tray.bat` does nothing**: usually Python without tkinter. Run `python quota_tray.py --which` in the unzipped directory; the output should include a line starting with `tk`.
+8. **The number doesn't match my credit balance**: this is one model's usage in its current window, not the account credit balance — different meters. `percent` is an integer at 1% granularity, so it can still read 0% after a while of use.
+9. **Where is the data stored, and is anything uploaded?** All of it comes from local session logs. On the international build the path is `~/.workbuddy-ai/projects/...`; the `WORKBUDDY_HOME` environment variable overrides the root. The tool only reads files — it writes nothing to WorkBuddy's data and makes no network requests; everything stays on your machine.
 5. **The pill doesn't appear**: it stays hidden while WorkBuddy isn't running. If WorkBuddy is running and it's still missing, check the last lines of `%LOCALAPPDATA%\quota-watch\tray.log`.
 6. **Double-clicking `tray.bat` does nothing**: usually Python without tkinter. Run `python quota_tray.py --which` in the unzipped directory; the output should include a line starting with `tk`.
 7. **The number doesn't match my credit balance**: this is one model's usage in its current window, not the account credit balance — different meters. `percent` is an integer at 1% granularity, so it can still read 0% after a while of use.
