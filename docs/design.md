@@ -47,7 +47,7 @@
 | 字段 | 含义 | 备注 |
 |---|---|---|
 | `quota.percent` | 该模型配额已用百分比 | 整数，精度限制见下文 |
-| `quota.reset_at` | 配额重置时间戳 | 秒级；本机为 24 小时窗口，每天 22:38 重置 |
+| `quota.reset_at` | 下一次配额重置的时刻 | 单位秒的 Unix 时间戳；本周期起点通常为此值减 24 小时 |
 | `quota.shared_models` | 共用同一配额的模型 | 非空时消耗互相影响 |
 | `rawUsage.credit` | 本次请求消耗积分 | 用于累计，不参与判定 |
 | `rawUsage.total_tokens` | 本次请求 token 数 | 同上 |
@@ -60,13 +60,11 @@
 
 | 模型 | 配额情况 |
 |---|---|
-| `deepseek-v4.1-flash` | 正常下发，约半数响应带该字段 |
-| `hy4-free` | 有 24 小时配额，字段稀疏，不足一成响应带 |
-| `hy3` | 同上，样本极少 |
-| `glm-5.3-flash` | 从不带，只有 `credit` |
-| `deepseek-v4-pro` | 使用记录早于字段上线，无从判断 |
+| `deepseek-v4.1-flash` | 有 24 小时配额，按用量估算约 2 亿 token |
+| `hy4-free` | 有 24 小时配额，按用量估算约 1000 万 token |
+| `glm-5.3-flash` | 无周期配额，仅按积分计费 |
 
-两件事需要分开：
+具体说明：
 
 - **是否下发**由模型决定。同一时段、同一会话中，其它模型的请求带该字段时 GLM 仍不带，可判定它不在 24 小时配额机制内，其额度按积分倍率计费。
 - **下发密度**因模型而异，从不足一成到约半数。密度低意味着百分比更新稀疏，数字可能长时间不变，这是样本间隔，不是漏读。
@@ -135,11 +133,11 @@ Windows 下可双击 `run.bat`，等价于 `python quota_watch.py`，结束前�
 
 ```
 ┌───────────────────────────────┐
-│ ● 配额胶囊           02:40  × │
+│ ● 配额胶囊           02:40  ×  │
 ├───────────────────────────────┤
 │ deepseek-v4.1-flash      55%  │
-│ ▬▬▬▬▬▬▬▬▬─────────────────────  │
-│ 重置前耗尽 · 约 1.1 小时后     │
+│ ▬▬▬▬▬▬▬▬▬──────────────────── │
+│ 重置前耗尽 · 约 1.1 小时后      │
 ├───────────────────────────────┤
 │ 重置 22:38 · 587 条快照  共 1 个│
 └───────────────────────────────┘
@@ -300,38 +298,6 @@ python quota_tray.py --always     # 不看 WorkBuddy，强制显示（预览与�
 - 小窗默认只列最严重的 3 个模型（`--max-rows` 可调），其余在页脚计数。
 - `build_report` 中 `elif conf == "idle"` 一段位于 `conf in ("low", "none")` 分支内部，实际不可达，因此「近期没有新增消耗」的模型会落到 `ok / 按当前节奏够用`。此处只作记录，未改动判定链。
 - **看不到账号级额度包余额**。该数据在账单接口 `v2/billing/meter/get-user-resource`，需要登录 token，而本机凭据由应用以 `$wbEncrypted` 加密。
-
-## 附录：GLM 的额度存放位置
-
-结论：**本地没有任何位置存放 GLM 的额度**。不是藏得深，是客户端从未收到。以下是逐处排查结果。
-
-| # | 位置 | 查了什么 | 结果 |
-|---|---|---|---|
-| 1 | `projects/*/*.jsonl` | GLM 记录的 `rawUsage` | `quota` 全为 `null` 或整键缺失；`credit` 正常（0.15 ~ 1.55） |
-| 2 | `workbuddy.db` → `session_usage` | 全部表结构与行 | 只有 `credit_json`（按 request id 记录积分），无上限与余额 |
-| 3 | `workbuddy.db` → `buddy_snapshots` | 表名近似「快照」 | 0 行，且列为应用模板快照，与额度无关 |
-| 4 | `models.json` | 模型清单 | 空数组（2 字节） |
-| 5 | `cache/acc-product-config-v3-*.json` | 60 个模型的配置 | 只有 `credits` 倍率（如 GLM-5.3-Flash `x0.08`）、上下文窗口、reasoning 档位，无按模型额度 |
-| 6 | `local_storage/*.info`（含 4 个 base64 + gzip 大块） | 解压后 36 ~ 56 万字符 | 全为产品目录与功能开关；`ModelRateLimitCap` 只涉及 hy3/hy4 的免费与付费切换 |
-| 7 | `plugin-account-state/*.json` | 账号状态 | 只有插件启停状态 |
-| 8 | `app.asar`（174MB 前端本体） | 搜索 `shared_models` / `reset_at` | 0 命中，客户端不解析这两个字段 |
-| 9 | `app.asar` 中处理 `rawUsage` 的代码 | 逐字节查看上下文 | 只读 `rawUsage.credit` 累加积分，`quota` 原样透传进 jsonl，不参与任何 UI |
-| 10 | `app.asar` 中文文案 | `配额` / `积分` / `额度` | `配额` 0 命中，`积分` 0 命中，`额度` 仅出现在飞书连接器文档中 |
-| 11 | `app.asar` 接口常量 | 额度相关路径 | 有 `/v2/billing/meter/checkin-activity-status`、`/v2/user/cloudagent/quota`、`/v2/billing/meter/get-enterprise-user-usage`，无按模型查询百分比的接口 |
-| 12 | `logs/workbuddyMainThread*.log` | 上述接口是否被调用 | 只调用签到（`checkin-activity-status` 260 次），且日志只记录 `path` 与 token 长度，不记响应体 |
-
-三条证据：
-
-1. **客户端不解析**：`app.asar` 中搜索不到 `shared_models`、`reset_at`，说明前端从未计划展示模型配额，只在收到 `rawUsage` 时取 `.credit` 累加积分。
-2. **客户端不查询**：没有「按模型查额度」的接口，只有签到、企业用量与云 agent 配额；签到调用也不回传模型百分比。
-3. **服务端不下发**：带 `rawUsage` 的 GLM 记录中，`quota` 一次未出现；同一时间段内 deepseek 与 hy4 均有下发。GLM 的 0 不是覆盖率低，而是恒为 0。
-
-因此查看 GLM 额度只有两条路，均在本工具之外：
-
-- **网页账号页**（`https://www.workbuddy.cn/profile/plan`，配置中 `creditPurchaseActions` 指向它），积分余额与套餐在该页。
-- **自行累加积分**：`rawUsage.credit` 存在，本工具已在报告中汇总（`credit_total`），但它无法换算成「还能支撑多久」。
-
-要转为可监控的数字，理论上需调用 Billing 接口获取积分余额，需要登录态 token，而本机凭据是 `$wbEncrypted` 加密信封，本项目明确不涉及。这也是「GLM 的额度」在本版本中只显示积分消耗的原因。
 
 ## 目录结构
 
