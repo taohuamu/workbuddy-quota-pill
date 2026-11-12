@@ -7,11 +7,9 @@
 ![platform](https://img.shields.io/badge/platform-Windows-white)
 [![release](https://img.shields.io/github/v/release/taohuamu/workbuddy-quota-pill?include_prereleases&label=release)](https://github.com/taohuamu/workbuddy-quota-pill/releases)
 
-**WorkBuddy Quota Pill** — a Windows tray pill that shows the per-model quota percentage WorkBuddy's server reports, with burn rate and runway. No proxy, no account pool, no API keys, no login.
+**WorkBuddy 配额胶囊**（英文名 **workbuddy-quota-pill**）是一个 Windows 桌面小工具。它读取 WorkBuddy 本地会话日志中服务端随响应下发的模型配额百分比（原值，不做估算），显示各模型本周期的用量、增速与触限预测。
 
-**WorkBuddy 配额胶囊**（英文名 **workbuddy-quota-pill**）是一个 Windows 桌面小工具。它读取 WorkBuddy 本地会话日志中服务端随响应下发的模型配额百分比（原值，不做估算），显示各模型本周期的用量、增速与触限预测。它在屏幕右下角常驻，不是浏览器插件，也不是 IDE 插件。
-
-这里的额度、限额、用量指的是同一件事：服务端为每个模型划定的周期上限，以及已经用掉多少。它**不是账号积分余额**——那是另一套计量，在 WorkBuddy 的「个人中心 → 用量」里看；本工具读的是每个模型各自的百分比。周期通常为 24 小时，从首次使用起算。
+这里的额度、限额、用量指的是同一件事：服务端为每个模型划定的周期上限，以及已经用掉多少。周期通常为 24 小时，从首次使用起算。
 
 它小巧安全，不联网，不上传，不碰账号，不改文件，无第三方依赖，解压即用，却能准确显示各模型本周期的额度用量，辅助你安排 AI 使用，避免因突发限额打断思路。
 
