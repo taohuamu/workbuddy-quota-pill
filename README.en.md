@@ -7,7 +7,7 @@
 ![platform](https://img.shields.io/badge/platform-Windows-white)
 [![release](https://img.shields.io/github/v/release/taohuamu/workbuddy-quota-pill?include_prereleases&label=release)](https://github.com/taohuamu/workbuddy-quota-pill/releases)
 
-**workbuddy-quota-pill** is a Windows desktop pill that reads the model quota percentage WorkBuddy's server sends with each response, straight from the local session log — the raw value, not an inference from 429s — and shows each model's usage, burn rate and runway.
+**WorkBuddy Quota Pill** (repo name **workbuddy-quota-pill**) is a small Windows desktop tool. It reads the model quota percentage WorkBuddy's server sends with each response, straight from the local session log — the raw value, no estimate — and shows each model's usage, burn rate and runway.
 
 Quota, limit and usage refer to the same thing here: the per-model cap the server sets, and how much of it is spent. The window is usually 24 hours, counted from first use.
 
