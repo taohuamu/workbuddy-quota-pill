@@ -50,7 +50,7 @@ WorkBuddy 打开后出现在右下角。显示最近一次对话用的模型以�
 
 <p align="center"><img src="docs/images/report.png" width="720" alt="完整报告窗"></p>
 
-**注意**：窗口不是唯一的选择。如果不想在后台挂一个程序，还有[技能版](https://github.com/taohuamu/workbuddy-quota-pill-skills)。[技能版](https://github.com/taohuamu/workbuddy-quota-pill-skills)使用的是同样的数据和判据，只是表现形式不一样。
+**注意**：窗口不是唯一的选择。我们还在WorkBuddy上传了它的[技能版本](https://github.com/taohuamu/workbuddy-quota-pill-skills)。[技能版](https://github.com/taohuamu/workbuddy-quota-pill-skills)使用的是同样的数据和判据，只是表现形式不一样。
 
 ## 工作原理
 
