@@ -31,8 +31,6 @@ I searched GitHub and elsewhere for something that fit my needs and habits, and 
 
 ## Three forms
 
-A window isn't the only option. If you'd rather not keep a background process running, there's also a [skill version](https://github.com/taohuamu/workbuddy-quota-pill-skills): same data, same thresholds, installed into WorkBuddy itself — ask in chat, get a table, done. Nothing resident, no tray icon. What follows covers the desktop app.
-
 ### 1. Pill
 
 Appears in the bottom-right corner once WorkBuddy is open. Shows the model used in the most recent conversation and how much of its window it has consumed.
@@ -50,6 +48,8 @@ Expands on hover. Lists up to 3 models, each with a progress bar and a one-line 
 Opens when you click any row of the card (or "Details" at its top right). Lists every model with usage in the current window, with its reset time, burn rate and runway, plus the tokens and credits spent within that window.
 
 <p align="center"><img src="docs/images/report.png" width="720" alt="Full report window"></p>
+
+A window isn't the only option. The same data and the same thresholds are also packaged as a [skill version](https://github.com/taohuamu/workbuddy-quota-pill-skills): installed into WorkBuddy itself, ask in chat and get a table back — nothing resident, no tray icon.
 
 ## How it works
 
