@@ -55,7 +55,7 @@ WorkBuddy writes session logs locally, and those logs record per-model quota usa
 
 Log path: `%USERPROFILE%\.workbuddy\projects\<project>\<session>.jsonl`. Each line is one request, and its `providerData.rawUsage.quota` field holds the quota state for that response: `model`, `percent`, `reset_at`, `shared_models`.
 
-Not every record carries `quota`: measured on this machine, about half of deepseek's records do, under a tenth of hy4's, and none of GLM's. The percentage is therefore a series of discrete samples, with no interpolation and no averaging.
+Not every record carries `quota`: measured on this machine, about half of deepseek's records do, under a tenth of hy4's, and none of glm-5.3-flash's. The percentage is therefore a series of discrete samples, with no interpolation and no averaging.
 
 `percent` and `reset_at` are reported by the server with each response and written to the log by the client. This tool reads them as-is, without processing of any kind. `percent` is an integer with 1% granularity; the interface shows it unmodified, with no interpolation.
 
@@ -107,7 +107,7 @@ Step 1 is required. If the old instance is still running, the new one exits imme
 
 ## FAQ
 
-1. **GLM-5.3-Flash shows no usage**: its entries in the local log have no `quota` field, so there is no percentage to read. deepseek and hy4 do report one over the same period, so this is a per-model difference, not a missed read.
+1. **GLM-5.3-Flash shows no usage**: its entries in the local log have no `quota` field, so there is no percentage to read. deepseek, hy4 and glm-5.3 all report one over the same period, so this is a per-model difference (and even within GLM, 5.3 and 5.3-flash differ), not a missed read.
 2. **hy4's number stays put for a long time**: free models do have a 24-hour window and can run close to the limit before a reset, but under a tenth of their responses carry `quota`, so the percentage updates sparsely. When samples are too thin, the report says "no forecast yet".
 3. **A model that was just reset and hasn't been used doesn't appear**: showing an empty 0% model serves no purpose.
 4. **The position drifts after changing display scaling or monitors**: right-click → Recalibrate position. It collapses the card first, then measures the input box edge again, and self-checks the result.
