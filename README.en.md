@@ -31,6 +31,8 @@ I searched GitHub and elsewhere for something that fit my needs and habits, and 
 
 ## Three forms
 
+A window isn't the only option. If you'd rather not keep a background process running, there's also a [skill version](https://github.com/taohuamu/workbuddy-quota-pill-skills): same data, same thresholds, installed into WorkBuddy itself — ask in chat, get a table, done. Nothing resident, no tray icon. What follows covers the desktop app.
+
 ### 1. Pill
 
 Appears in the bottom-right corner once WorkBuddy is open. Shows the model used in the most recent conversation and how much of its window it has consumed.
