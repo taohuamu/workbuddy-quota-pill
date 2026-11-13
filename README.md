@@ -32,25 +32,25 @@ WorkBuddy 对模型用量有两套限制：一个是账号级的积分，一个�
 
 ## 三种形态
 
-窗口不是唯一的选择。如果不想在后台挂一个程序，还有[技能版](https://github.com/taohuamu/workbuddy-quota-pill-skills)：同样的数据、同一套判据，装进 WorkBuddy 后在对话框里问一句就出一张表，答完即止，不常驻、不占托盘。下面说的是桌面版。
-
-### ① 胶囊
+### 胶囊
 
 WorkBuddy 打开后出现在右下角。显示最近一次对话用的模型以及这个模型在本周期的额度使用百分比。
 
 <p align="center"><img src="docs/images/pill.png" width="226" alt="胶囊态"></p>
 
-### ② 小卡片
+### 小卡片
 
 鼠标触碰胶囊后展开。最多列 3 个模型，每个模型配一条进度条和一句判决语，直观呈现各模型的额度使用情况与预计耗尽时间。
 
 <p align="center"><img src="docs/images/card.png" width="400" alt="展开态"></p>
 
-### ③ 完整报告窗
+### 完整报告窗
 
 点卡片上任意一行（或右上角「详情」）打开。列出当前周期内有消耗的模型，包含各自的重置时间、增速、触限预测，以及周期内的 token 与积分消耗。
 
 <p align="center"><img src="docs/images/report.png" width="720" alt="完整报告窗"></p>
+
+**注意**：窗口不是唯一的选择。如果不想在后台挂一个程序，还有[技能版](https://github.com/taohuamu/workbuddy-quota-pill-skills)。[技能版](https://github.com/taohuamu/workbuddy-quota-pill-skills)使用的是同样的数据和判据，只是表现形式不一样。
 
 ## 工作原理
 
