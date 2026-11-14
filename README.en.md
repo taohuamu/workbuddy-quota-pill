@@ -49,7 +49,7 @@ Opens when you click any row of the card (or "Details" at its top right). Lists 
 
 <p align="center"><img src="docs/images/report.png" width="720" alt="Full report window"></p>
 
-A window isn't the only option. The same data and the same thresholds are also packaged as a [skill version](https://github.com/taohuamu/workbuddy-quota-pill-skills): installed into WorkBuddy itself, ask in chat and get a table back — nothing resident, no tray icon.
+A window isn't the only option. The same data and the same thresholds are also packaged as a [skill version](https://github.com/taohuamu/workbuddy-quota-pill-skills): install it into WorkBuddy — coming soon to the WorkBuddy skill marketplace.
 
 ## How it works
 
