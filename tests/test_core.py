@@ -360,6 +360,55 @@ def test_cli():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_footer():
+    """页脚的「会不会到上限」必须由读数算出来，不能写死。
+
+    曾经写死过一句「按当前速度，没有模型会在本周期内到上限」，而同屏某行正写着
+    「约 2 小时后到上限」——同一份输出自己打自己。
+    """
+    import contextlib
+    import io as _io
+    origin = qw.PROJECTS
+    tmp = tempfile.mkdtemp(prefix="qw-foot-")
+    try:
+        qw.PROJECTS = tmp
+        now_ms = int(time.time() * 1000)
+        reset = int(time.time() + 6 * 3600)
+
+        def run():
+            old = sys.argv
+            sys.argv = ["quota_watch.py"]
+            buf = _io.StringIO()
+            try:
+                with contextlib.redirect_stdout(buf):
+                    qw.main()
+            finally:
+                sys.argv = old
+            return buf.getvalue()
+
+        # 近 15 分钟从 30% 涨到 40%：按此速度约一个多小时到上限，早于 6 小时后的重置
+        write_case(os.path.join(tmp, "fast"),
+                   [line(now_ms - (5 - i) * 60000, 30 + i * 2, reset) for i in range(6)])
+        out = run()
+        check("快烧的模型升为注意", "[! ]m-test" in out, out[-260:])
+        check("页脚点名快烧的模型", "按当前速度" in out and "早于重置" in out, out[-160:])
+        check("页脚不再写死「没有模型会到上限」",
+              "没有模型会在本周期内到上限" not in out, out[-160:])
+
+        # 慢烧：近 15 分钟只涨 1 个百分点，撑得到 6 小时后的重置
+        shutil.rmtree(os.path.join(tmp, "fast"), ignore_errors=True)
+        write_case(os.path.join(tmp, "slow"),
+                   [line(now_ms - (5 - i) * 60000, 10 + (1 if i == 5 else 0), reset)
+                    for i in range(6)])
+        out2 = run()
+        check("慢烧时页脚说没有模型会到上限",
+              "没有模型会在本周期内到上限" in out2, out2[-160:])
+        check("慢烧不升级等级", "[ok]m-test" in out2, out2[-260:])
+    finally:
+        qw.PROJECTS = origin
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 if __name__ == "__main__":
     print("quota-watch 回归测试")
     test_norm_reset()
@@ -371,5 +420,6 @@ if __name__ == "__main__":
     test_safe_numbers()
     test_malformed_lines()
     test_cli()
+    test_footer()
     print(f"\n通过 {PASS}，失败 {FAIL}")
     sys.exit(1 if FAIL else 0)

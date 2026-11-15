@@ -332,9 +332,14 @@ def print_table(rep):
     if stale_n:
         print(f"  另有 {stale_n} 个模型停在上一周期（重置后未使用），不计入上表。")
     print()
+    # 页脚不能写死「没有模型会到上限」：那个结论得由读数算出来。曾经写死过一句
+    # 「按当前速度，没有模型会在本周期内到上限」，而同屏某行正写着「约 2 小时后到上限」。
+    fast = forecast.exhaust_text(live)
     if rep["has_risk"]:
         print("  [!!] 有模型存在触限风险。建议：先把长任务的关键结论落盘，再切到其他模型继续，")
         print("       或把大批量工作拆成小步，避免在额度耗尽时丢失上下文。")
+    elif fast:
+        print("  [! ] %s建议先把长任务的关键结论落盘。" % fast)
     else:
         print("  [ok] 按当前速度，没有模型会在本周期内到上限。")
     print(f"  提示：百分比粒度为整数；「按此速度」只看最近 {win} 分钟，停手后这个数会消失。")
@@ -362,7 +367,7 @@ def main():
     if models:
         forecast.attach(models, loaded[0], args.window, args.warn,
                         forecast.FLOOR_PCT, forecast.GATE_PCT)
-        # 等级改成只看百分比之后，风险要按新等级重算，不能沿用 build_report 的旧判定
+        # attach 会按「用量带 + 速度」重算等级，风险与退出码得跟着重算，不能沿用旧判定
         rep["has_risk"] = any(m.get("level") == "critical"
                               for m in models if not m.get("stale"))
 

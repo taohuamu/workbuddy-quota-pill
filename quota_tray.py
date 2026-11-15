@@ -2743,15 +2743,24 @@ class ReportWindow:
         else:
             fy = y
         c.create_line(cx0, fy, cx1, fy, fill=p["edge_soft"])
-        # 建议放一枚语义色淡底的提示框里：有风险时红调浮出，没有时安静灰底
+        # 建议放一枚语义色淡底的提示框里：有风险时红调浮出、按速度撑不到重置时琥珀色，
+        # 都没有才安静灰底。结论一律由 forecast 算，不写死——写死会出现「底下说不会耗尽、
+        # 上面某张卡写着 2 小时后触限」的自相矛盾。
         risk = bool(self.report.get("has_risk"))
+        # 提示条是单行固定高度，多一句就截断：不带「样本少未计入」那句（卡片上已标样本少）
+        fast = forecast.exhaust_text(live_models(self.report), include_weak=False)
         if risk:
             msg = "有模型会在配额重置前耗尽：先把长任务的关键结论落盘，再切模型或拆小步。"
             tint = mix(p["level"]["critical"], p["card"], 0.94)
             edge_col = mix(p["level"]["critical"], p["card"], 0.75)
             msg_col = p["level"]["critical"]
+        elif fast:
+            msg = fast + "建议先把关键结论落盘，再切模型或拆小步。"
+            tint = mix(p["level"]["warn"], p["card"], 0.92)
+            edge_col = mix(p["level"]["warn"], p["card"], 0.7)
+            msg_col = p["level"]["warn"]
         else:
-            msg = "按当前节奏，没有模型会在配额重置前耗尽。"
+            msg = "按当前速度，没有模型会在本周期内到上限。"
             tint = p["card"]          # 灰底上用白框，安静但不糊底
             edge_col = p["edge_soft"]
             msg_col = p["text"]

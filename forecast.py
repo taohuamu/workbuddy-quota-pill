@@ -303,23 +303,79 @@ def decide(rows, now=None, window_min=WINDOW_MIN, horizon_h=HORIZON_H,
 
 
 # ---------------------------------------------------------------------------
-# 等级：只由百分比决定
+# 等级：用量带（百分比）+ 按速度能不能撑到重置
 # ---------------------------------------------------------------------------
 LEVEL_RANK = {"critical": 0, "warn": 1, "ok": 2, "idle": 3}
 
 
-def level_of(pct):
-    """等级只由已用百分比决定，与速率无关。
+def pace_exhausts(fc, hours_to_reset):
+    """按当前速度会不会在重置前到上限。
 
-    旧口径里有一条「低置信度且 ≥80% → critical，按最坏打算」，那是端点差分时代的
-    补丁：预测不出来就当成坏消息。现在预测总是有的（哪怕是「无新增」），这条补丁
-    没有存在理由，留着只会让「按最坏打算」这种旧说法漏到屏幕上。
+    只在证据够的时候算数：`tier == "ok"` 意味着窗口内至少涨了 4 个百分点（k≥4），
+    这时中位时间才收得紧；样本更少（`few`）时同一个状态的换算值能差十倍，不该拿它改等级。
+    """
+    if not fc or fc.get("tier") != "ok" or not hours_to_reset:
+        return False
+    eta = fc.get("eta_min")
+    return bool(eta) and eta < hours_to_reset * 60.0
+
+
+def level_of(pct, fc=None, hours_to_reset=None):
+    """等级 = 用量带，以及「按当前速度撑不到重置」两者取重。
+
+    用量带：≥95 触限、≥80 注意、其余正常。
+    按速度：证据够（见 pace_exhausts）且中位时间早于重置 → 至少「注意」。
+
+    0.5.0 曾把速度这一路整个删掉，理由是「等级只看百分比」。问题是有模型用掉 38%、
+    按当前速度两小时后到上限，却显示「正常」，与同一张卡上的读数自相矛盾——用户一眼
+    就看出来了。加回来时加了证据门槛：9 天回放里只有 4.5% 的 tick 会因此升级，
+    另外 6.5%（样本少）不计。
     """
     if pct >= 95:
         return "critical"
     if pct >= GATE_PCT:
         return "warn"
+    if pace_exhausts(fc, hours_to_reset):
+        return "warn"
     return "ok"
+
+
+def exhaust_summary(models):
+    """把「按当前速度会在重置前到上限」的模型分成 (有证据, 样本少) 两组。
+
+    页脚与报告底部的提示都用它，免得两处各判一次、结论还不一样。
+    """
+    strong, weak = [], []
+    for m in models or []:
+        if m.get("stale"):
+            continue
+        fc = m.get("forecast") or {}
+        eta, h2r = fc.get("eta_min"), m.get("hours_to_reset")
+        if not eta or not h2r or eta >= h2r * 60.0:
+            continue
+        (strong if fc.get("tier") == "ok" else weak).append(m)
+    return strong, weak
+
+
+def exhaust_text(models, include_weak=True):
+    """页脚那一句。没有模型会在重置前到上限时返回 None，由调用方说「没有」。
+
+    分两档写：证据够的直接点名；样本少的（窗口内不足 4 个百分点）只作参考并说明原因，
+    免得读的人拿它跟等级较劲——等级不给这种情况升级。
+    `include_weak=False` 给单行固定宽度的界面用（桌面报告窗的提示条），多一句就截断。
+    """
+    strong, weak = exhaust_summary(models)
+    if strong:
+        who = "、".join("%s 约 %s后" % (m["model"], dur_minutes(
+            (m.get("forecast") or {}).get("eta_min"))) for m in strong[:2])
+        txt = "按当前速度，%s到上限，早于重置。" % who
+        if weak and include_weak:
+            txt += "%s 样本少，未计入。" % weak[0]["model"]
+        return txt
+    if weak:
+        who = "、".join(m["model"] for m in weak[:2])
+        return "按当前速度，%s 撑不到重置，但样本少，仅供参考。" % who
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -413,7 +469,7 @@ def should_notify(m, pct=GATE_PCT):
 
 def attach(models, snaps, window_min=WINDOW_MIN, horizon_h=HORIZON_H,
            floor_pct=FLOOR_PCT, pct=GATE_PCT, now=None):
-    """给每个在用的模型挂上 forecast，并让 level / verdict 只由百分比决定。
+    """给每个在用的模型挂上 forecast，并按「用量带 + 速度」重算 level。
 
     报告层和通知层都调这一个，两处等级才不会分叉。
     为什么要重算 level：数据层的 level 里还有一条「低置信度且 ≥80% → critical，
@@ -435,7 +491,7 @@ def attach(models, snaps, window_min=WINDOW_MIN, horizon_h=HORIZON_H,
                     floor_pct=floor_pct, pct_threshold=pct,
                     hours_to_reset=m.get("hours_to_reset"))
         m["forecast"] = fc
-        m["level"] = level_of(m["percent_used"])
+        m["level"] = level_of(m["percent_used"], fc, m.get("hours_to_reset"))
         m["verdict"] = phrase(fc, window_min)
     models.sort(key=lambda r: (LEVEL_RANK.get(r["level"], 9),
                                -(r["percent_used"] or 0)))
