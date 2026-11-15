@@ -34,10 +34,14 @@ def rep(*models):
     return {"models": list(models), "files": 3, "records": 9, "generated_at": "11-06 01:30"}
 
 
-def fc(eta_min=None, tier="ok", k=6, capped=False):
-    """构造一个 forecast 字典，字段与 forecast.decide() 的返回一致。"""
+def fc(eta_min=None, tier="ok", k=6, capped=False, wm=15.0):
+    """构造一个 forecast 字典，字段与 forecast.decide() 的返回一致。
+
+    wm 是窗口分钟数：decide() 会把它一起带出来，展示层据此说「近 N 分钟」。
+    """
     return {"tier": tier, "eta_min": eta_min, "k": k, "capped": capped,
-            "alert": False, "need": 30.0, "p": None, "why": ""}
+            "alert": False, "need": 30.0, "p": None, "why": "",
+            "window_min": float(wm)}
 
 
 def m(model, pct, level="ok", eta=None, verdict="按当前节奏够用", shared=None, f=None):
@@ -239,6 +243,9 @@ def test_rows():
     check("正常行也给时间", sub.startswith("约 ") and "小时" in sub, sub)
     _, _, sub = qt.row_texts(m("m1", 40, "ok", f=fc(None, "idle", k=0)))
     check("无新增时说事实", sub == "近 15 分钟无新增", sub)
+    # 卡片文案的窗口要跟 --window 走（D2：改 45 分钟时卡片仍写 15）
+    _, _, sub = qt.row_texts(m("m1", 40, "ok", f=fc(None, "idle", k=0, wm=45)))
+    check("窗口 45 时卡片说 45 分钟", sub == "近 45 分钟无新增", sub)
     _, _, sub = qt.row_texts(m("m1", 40, "ok", f=fc(2400, "ok", capped=True)))
     check("撑到重置时改口", "本周期内" in sub, sub)
     _, _, sub = qt.row_texts(m("m1", 40, "idle", verdict="样本不足，无法预测"))

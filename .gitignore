@@ -30,3 +30,6 @@ UI-HANDOFF.md
 *.swp
 .DS_Store
 Thumbs.db
+
+# ── 迭代基线备份（体积大，路径见 _iteration/iteration_state.md） ──
+_iteration/baseline_*/

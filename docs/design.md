@@ -324,8 +324,8 @@ workbuddy-quota-pill/
 ## 测试
 
 ```bash
-python tests/test_core.py    # 56 项
-python tests/test_tray.py    # 172 项
+python tests/test_core.py    # 数据层
+python tests/test_tray.py    # 展示层
 ```
 
 `test_core.py` 覆盖 `norm_reset` 秒与毫秒归一、`burn_rate` 三档置信度与退化路径、`fmt_dur` 边界、`build_report` 在伪造日志上的完整判定链（安全 / 重置前耗尽 / 样本不足三种结局）。

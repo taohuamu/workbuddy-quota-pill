@@ -3,8 +3,8 @@
 """
 WorkBuddy 配额胶囊 · 右下角常驻小窗
 ==================================
-展示层：所有数字都来自 quota_watch.build_report()，本文件不重复任何判定逻辑，
-也不碰配额快照的解析与取整口径。
+展示层：用量与周期来自 quota_watch.build_report()，预测与等级来自 forecast.attach()；
+本文件不重复任何判定逻辑，也不碰配额快照的解析与取整口径。
 
 生命周期（跟随 WorkBuddy 主窗口，而非仅进程）：
     打开 WorkBuddy      → 小窗出现
@@ -312,8 +312,8 @@ def app_state_from(wb_pids, window_pids):
 def row_texts(r):
     """一行模型要显示的三个文本：(名称, 百分比, 副标题)。
 
-    副标题只给结果，不报依据。卡片宽度有限，写「近 15 分钟 +9 格（36 格/小时）」
-    会把长模型名那一行挤断；格数与速率留在详情页。
+    副标题只给结果，不报依据。卡片宽度有限，把「涨 9% / 36 个百分点每小时」这类
+    过程数据也塞进来，会把长模型名那一行挤断；涨幅与速率留在详情页。
     优先级仍是「已到上限 > 预测」，不能因为算出了时间就把「已用满」说成「还能撑 X 分钟」。
     """
     pct = r.get("percent_used", 0)
@@ -2856,7 +2856,8 @@ class ReportWindow:
         fc = r.get("forecast") or {}
         line1 = [
             ("重置", str(r.get("reset_local") or "—")),
-            ("近 15 分钟", forecast.obs_cell(fc)),
+            ("近 %d 分钟" % int(round(fc.get("window_min") or 15)),
+             forecast.obs_cell(fc)),
             ("距重置", qw.fmt_dur(r.get("hours_to_reset"))),
         ]
         line2 = [
@@ -3069,7 +3070,7 @@ def build_parser():
     ap.add_argument("--uninstall", action="store_true", help="移除登录启动项")
     ap.add_argument("--always", action="store_true", help="不跟随 WorkBuddy，直接显示（调试/预览）")
     ap.add_argument("--window", type=int, default=15,
-                    help="观测窗口（分钟），数窗口内涨了几格（默认 15）")
+                    help="观测窗口（分钟），数窗口内涨了几个百分点（默认 15）")
     ap.add_argument("--warn", type=float, default=2.0,
                     help="提前提醒的时限（小时），与技能版 --warn 同义（默认 2）")
     ap.add_argument("--max-rows", type=int, default=3, help="最多显示几个模型（默认 3）")
@@ -3091,6 +3092,7 @@ def build_parser():
 def main(argv=None):
     args = build_parser().parse_args(sys.argv[1:] if argv is None else argv)
     # 探测周期同时是隐藏判定的粒度：低于 0.2 秒没有意义，只会白烧 CPU
+    args.window = max(1, int(args.window or 15))   # 0 / 负数会让「近 N 分钟」和速率失去意义
     args.poll = max(0.2, float(args.poll or 1.5))
     args.poll_idle = max(args.poll, float(args.poll_idle or 5.0))
 

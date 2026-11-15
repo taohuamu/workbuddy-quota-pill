@@ -131,7 +131,7 @@ Step 1 is required. If the old instance is still running, the new one exits imme
 ## Development
 
 ```bash
-python tests/test_tray.py     # presentation layer, 168 checks
+python tests/test_tray.py     # presentation layer
 python tests/test_core.py     # data layer, 56 checks
 python tools/package.py       # build the beta archive into dist/
 python tools/preview.py out.bmp --pill   # offscreen render for a screenshot

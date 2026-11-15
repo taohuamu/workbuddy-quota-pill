@@ -241,9 +241,11 @@ def decide(rows, now=None, window_min=WINDOW_MIN, horizon_h=HORIZON_H,
     now             : 判定时刻，None = 最后一条快照
     hours_to_reset  : 距本周期重置还有几小时；给 None 就不做「本周期内到不了」的判断
     """
+    window_min = max(1.0, float(window_min))   # 0 或负数没有意义，且会让速率除零
     series = _norm(rows)
     blank = {"alert": False, "p": None, "k": 0, "need": None, "eta_min": None,
-             "tier": "none", "capped": False, "why": "无快照"}
+             "tier": "none", "capped": False, "why": "无快照",
+             "window_min": float(window_min)}
     if not series:
         return blank
     if now is None:
@@ -256,8 +258,11 @@ def decide(rows, now=None, window_min=WINDOW_MIN, horizon_h=HORIZON_H,
     p = hist[-1][1]
     need = 100.0 - p
     w_h = window_min / 60.0
+    # window_min 随结果一起带出去：展示层（卡片、--print）只拿到这个字典，
+    # 不给它窗口就只能按默认值说话，--window 一改文案就对不上读数。
     out = {"alert": False, "p": p, "k": 0, "need": need, "eta_min": None,
-           "tier": "none", "capped": False, "why": ""}
+           "tier": "none", "capped": False, "why": "",
+           "window_min": float(window_min)}
 
     if p >= 100:
         out.update({"tier": "done", "why": "额度已耗尽"})
@@ -342,7 +347,10 @@ def phrase(fc, window_min=WINDOW_MIN, brief=False):
     """
     tier = (fc or {}).get("tier")
     if tier == "idle":
-        return "近 %d 分钟无新增" % int(window_min)
+        # 用显式 None 判断而不是 `or`：window_min=0 会被 `or` 当成假值，回落到默认 15。
+        wm = (fc or {}).get("window_min")
+        wm = window_min if wm is None else wm
+        return "近 %d 分钟无新增" % int(wm)
     if tier == "done":
         return "已到上限"
     if tier == "soon":
