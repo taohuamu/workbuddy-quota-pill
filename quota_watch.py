@@ -13,11 +13,11 @@ WorkBuddy 模型配额胶囊
 用法：
     python quota_watch.py              # 表格报告
     python quota_watch.py --json       # 机器可读，便于接自动化
-    python quota_watch.py --window 120 # 用最近 120 分钟算增速
+    python quota_watch.py --window 45  # 观测窗口改为最近 45 分钟
     python quota_watch.py --warn-only  # 仅在有风险时输出（配合定时任务）
 
 退出码：
-    0 = 全部安全    1 = 有模型存在触限风险（>warn 阈值）
+    0 = 没有模型接近上限    1 = 有模型已用 ≥95%
 """
 import argparse
 import datetime as dt
@@ -26,6 +26,8 @@ import json
 import os
 import sys
 from collections import defaultdict
+
+import forecast   # 预测层（与本文件同目录）。CLI 用它把「涨了几个百分点」换成「还要多久」
 
 PERIOD_H = 24.0      # 配额池周期（小时）：reset_at 往前推一天 = 本周期起点
 RESET_GRACE = 60.0   # 重置时刻前后 60 秒的抖动宽限
@@ -288,19 +290,25 @@ def build_report(window_min, warn_threshold, loaded=None):
 
 
 ICON = {"critical": "[!!]", "warn": "[! ]", "ok": "[ok]", "idle": "[--]"}
-CONF_CN = {"high": "高", "medium": "中", "low": "低(样本短)", "idle": "无消耗", "none": "—"}
 
 
 def print_table(rep):
+    """命令行表格。列与桌面小窗、技能版报告同一套口径：
+
+    「近 N 分钟」是观测事实（窗口内涨了几个百分点），「按此速度」是换算值。
+    旧版这两列是「增速/h」与「预计触限」，都用端点差分算——15 分钟窗口下
+    量化误差 100%，已经不用了（`burn_rate()` 仍保留，供 JSON 与测试）。
+    """
     if rep.get("error"):
         print("  " + rep["error"])
         return
+    win = rep["window_min"]
     print()
     print(f"  WorkBuddy 模型配额 · {rep['generated_at']} · "
-          f"增速窗口 {rep['window_min']} 分钟 · 数据 {rep['files']} 个会话文件 / {rep['records']} 条快照")
+          f"观测窗口 {win} 分钟 · 数据 {rep['files']} 个会话文件 / {rep['records']} 条快照")
     print()
     head = (f"  {'':4}{'模型':24}{'已用':>6}{'剩余':>6}{'重置时间':>13}"
-            f"{'距重置':>10}{'增速/h':>9}{'预计触限':>11}{'可信度':>12}")
+            f"{'距重置':>10}{'近 ' + str(win) + ' 分钟':>14}{'按此速度':>16}")
     print(head)
     print("  " + "-" * (len(head) + 8))
     live = [r for r in rep["models"] if not r.get("stale")]
@@ -308,12 +316,12 @@ def print_table(rep):
     for r in live:
         pct = f"{r['percent_used']:g}%"
         left = f"{r['percent_left']:g}%"
-        rate = f"{r['rate_pct_per_hour']:g}%" if r["rate_pct_per_hour"] else "—"
-        eta = fmt_dur(r["eta_hours_to_limit"])
+        fc = r.get("forecast")
+        obs = forecast.obs_cell(fc)
+        eta = forecast.eta_cell(fc, win)
         to_reset = fmt_dur(r["hours_to_reset"])
-        conf = CONF_CN.get(r["rate_confidence"], "—")
         print(f"  {ICON[r['level']]}{r['model'][:24]:24}{pct:>6}{left:>6}"
-              f"{r['reset_local']:>13}{to_reset:>10}{rate:>9}{eta:>11}{conf:>12}")
+              f"{r['reset_local']:>13}{to_reset:>10}{obs:>14}{eta:>16}")
         print(f"         └ {r['verdict']}"
               + (f" · 与 {', '.join(r['shared_models'])} 共用配额" if r["shared_models"] else "")
               + f" · 本周期 {r.get('requests_cycle', r['requests'])} 次"
@@ -328,20 +336,36 @@ def print_table(rep):
         print("  [!!] 有模型存在触限风险。建议：先把长任务的关键结论落盘，再切到其他模型继续，")
         print("       或把大批量工作拆成小步，避免在额度耗尽时丢失上下文。")
     else:
-        print("  [ok] 按当前节奏，没有模型会在配额重置前耗尽。")
-    print("  提示：百分比粒度为整数，短时波动会放大误差；增速随闲置自动回落。")
+        print("  [ok] 按当前速度，没有模型会在本周期内到上限。")
+    print(f"  提示：百分比粒度为整数；「按此速度」只看最近 {win} 分钟，停手后这个数会消失。")
     print()
 
 
 def main():
     ap = argparse.ArgumentParser(description="WorkBuddy 模型配额胶囊")
     ap.add_argument("--json", action="store_true", help="输出 JSON")
-    ap.add_argument("--window", type=int, default=60, help="增速统计窗口（分钟，默认 60）")
-    ap.add_argument("--warn", type=float, default=3.0, help="预计触限小于该小时数即告警（默认 3）")
+    ap.add_argument("--window", type=int, default=15,
+                    help="观测窗口（分钟），数窗口内涨了几个百分点（默认 15）")
+    ap.add_argument("--warn", type=float, default=2.0,
+                    help="提前提醒时限：按此速度多少小时内到上限就告警（默认 2）")
     ap.add_argument("--warn-only", action="store_true", help="无风险时不输出")
     args = ap.parse_args()
+    # 小于 1 分钟的窗口数不出东西，统一回落到默认值；负数同理（别让「近 -5 分钟」印出来）
+    args.window = int(args.window)
+    if args.window < 1:
+        args.window = int(forecast.WINDOW_MIN)
 
-    rep = build_report(args.window, args.warn)
+    # 一次读盘：报告与预测共用同一份快照（全量扫 0.4~0.7 秒，读两遍会明显卡）
+    loaded = load_snapshots()
+    rep = build_report(args.window, args.warn, loaded=loaded)
+    models = rep.get("models") or []
+    if models:
+        forecast.attach(models, loaded[0], args.window, args.warn,
+                        forecast.FLOOR_PCT, forecast.GATE_PCT)
+        # 等级改成只看百分比之后，风险要按新等级重算，不能沿用 build_report 的旧判定
+        rep["has_risk"] = any(m.get("level") == "critical"
+                              for m in models if not m.get("stale"))
+
     if args.json:
         print(json.dumps(rep, ensure_ascii=False, indent=2))
     elif not (args.warn_only and not rep.get("has_risk")):

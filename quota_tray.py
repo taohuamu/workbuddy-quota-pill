@@ -3092,7 +3092,10 @@ def build_parser():
 def main(argv=None):
     args = build_parser().parse_args(sys.argv[1:] if argv is None else argv)
     # 探测周期同时是隐藏判定的粒度：低于 0.2 秒没有意义，只会白烧 CPU
-    args.window = max(1, int(args.window or 15))   # 0 / 负数会让「近 N 分钟」和速率失去意义
+    # 小于 1 分钟的窗口数不出东西，统一回落到默认值（与 quota_watch / notify 一致）
+    args.window = int(args.window)
+    if args.window < 1:
+        args.window = int(forecast.WINDOW_MIN)
     args.poll = max(0.2, float(args.poll or 1.5))
     args.poll_idle = max(args.poll, float(args.poll_idle or 5.0))
 

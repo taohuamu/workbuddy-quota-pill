@@ -311,6 +311,55 @@ def test_malformed_lines():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_cli():
+    """CLI 与界面同一套口径：数最近 N 分钟涨了几个百分点，而不是端点差分算增速。"""
+    import contextlib
+    import io
+    origin = qw.PROJECTS
+    tmp = tempfile.mkdtemp(prefix="qw-cli-")
+    try:
+        qw.PROJECTS = tmp
+        now_ms = int(time.time() * 1000)
+        reset = int(time.time() + 5 * 3600)
+        write_case(os.path.join(tmp, "p1"),
+                   [line(now_ms - (5 - i) * 60000, 90 + i, reset) for i in range(6)])
+
+        def run(*argv):
+            old = sys.argv
+            sys.argv = ["quota_watch.py"] + list(argv)
+            buf = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(buf):
+                    code = qw.main()
+            finally:
+                sys.argv = old
+            return code, buf.getvalue()
+
+        _, out = run()
+        check("CLI 出两列读数", "近 15 分钟" in out and "按此速度" in out, out[:120])
+        check("CLI 不再印增速与可信度",
+              "增速/h" not in out and "预计触限" not in out and "可信度" not in out, out[:120])
+        check("CLI 正文是结果句", "按此速度约" in out, out[-160:])
+
+        _, out45 = run("--window", "45")
+        check("--window 45 贯穿表头", "近 45 分钟" in out45, out45[:120])
+
+        _, out0 = run("--window", "0")
+        check("窗口 0 回落到默认 15", "近 15 分钟" in out0 and "近 0 分钟" not in out0, out0[:120])
+
+        code_json, out_json = run("--json")
+        rep = json.loads(out_json)
+        live = [m for m in rep["models"] if not m.get("stale")]
+        check("--json 里每个在用模型都带 forecast",
+              bool(live) and all("forecast" in m for m in live), live[:1])
+        check("退出码按新等级算（已用 95% → 1）", code_json == 1, code_json)
+        check("has_risk 与 level 一致",
+              rep["has_risk"] == any(m["level"] == "critical" for m in live), rep["has_risk"])
+    finally:
+        qw.PROJECTS = origin
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 if __name__ == "__main__":
     print("quota-watch 回归测试")
     test_norm_reset()
@@ -321,5 +370,6 @@ if __name__ == "__main__":
     test_empty_dir()
     test_safe_numbers()
     test_malformed_lines()
+    test_cli()
     print(f"\n通过 {PASS}，失败 {FAIL}")
     sys.exit(1 if FAIL else 0)

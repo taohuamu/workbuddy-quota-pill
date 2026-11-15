@@ -83,17 +83,23 @@
 ### 命令行
 
 ```bash
-python quota_watch.py                 # 数据层自带的表格（旧口径，仅供调试）
-python quota_watch.py --json          # 机器可读
-python quota_watch.py --warn 6        # 数据层等级阈值：预计 6 小时内触限算 warn（默认 3）
+python quota_watch.py                 # 命令行表格（与界面同一套口径）
+python quota_watch.py --json          # 机器可读，每个在用模型带 forecast 子对象
+python quota_watch.py --window 45     # 观测窗口：数最近 45 分钟涨了几个百分点（默认 15）
+python quota_watch.py --warn 2        # 提前提醒时限：按此速度 2 小时内到上限就判 alert（默认 2）
 python quota_watch.py --warn-only     # 无风险时静默，适合定时任务
-python quota_tray.py --window 30 --warn 3   # 界面：数 30 分钟的涨幅、按 3 小时时限判提前提醒
+python quota_tray.py --window 30 --warn 3   # 界面：同上，窗口与时限可单独设
 ```
 
-界面那两个参数与数据层同名的 `--warn` 语义不同：数据层用它决定 `level`，界面用它做
-χ² 判定的时限。两者的 `level` 现在都由 `forecast.level_of()` 覆盖，所以真正影响显示的是界面那一个。
+三个入口（命令行、托盘、技能版报告与通知）的 `--window` / `--warn` **语义相同**，都交给
+`forecast`：前者是数涨幅的窗口，后者是提前提醒的时限。小于 1 分钟的窗口没有意义，一律回落到默认 15。
 
-退出码：`0` 无风险，`1` 存在 `critical`。配合 `--warn-only` 可让计划任务只在真正出问题时通知。
+`build_report()` 里那套端点差分仍在（`rate_pct_per_hour` / `rate_confidence` /
+`eta_hours_to_limit` 三个字段保留给 JSON 与老调用方），但显示层一律用 forecast 的结果——
+`attach()` 会把 `level` 与 `verdict` 覆盖掉。所以命令行表格的列也换成了
+「近 N 分钟 / 按此速度」，`has_risk` 与退出码按新等级重算。
+
+退出码：`0` 没有模型到 95%，`1` 存在 `critical`。配合 `--warn-only` 可让计划任务只在真正出问题时通知。
 
 Windows 下可双击 `run.bat`，等价于 `python quota_watch.py`，结束前暂停以便查看结果。
 
@@ -107,7 +113,7 @@ Windows 下可双击 `run.bat`，等价于 `python quota_watch.py`，结束前�
 
 **三、换算成时间。** `λ|k ~ Gamma(k+½, W)`、`T|λ ~ Gamma(R, λ)`，于是 `T/(T+W) ~ Beta(R, k+½)`，取分位反解 `T`。主数用 50% 分位，`k≥4` 时才给 5%/95% 的区间。`k=0` 不给时间——那是「没观测到新增」，不是「消耗为零」。
 
-窗口锚点是当前时刻而非最后一条快照：一个模型三小时没动过，窗口就该是空的（「近 15 分钟无新增」），不能把它三小时前那阵爆发重新算一遍报给用户。`quota_watch.burn_rate()` 保留但不再参与界面（`tests/test_core.py` 仍覆盖它）。
+窗口锚点是当前时刻而非最后一条快照：一个模型三小时没动过，窗口就该是空的（「近 15 分钟无新增」），不能把它三小时前那阵爆发重新算一遍报给用户。`quota_watch.burn_rate()` 保留但不再参与任何显示（命令行、托盘、技能版都改走 `forecast`；`tests/test_core.py` 仍覆盖它）。
 
 **四、周期口径**（`PERIOD_H = 24`）。配额池按 24 小时轮回。`reset_at` 是**下一次**重置时刻，故本周期起点为 `reset_at - 24h`。两处按此边界处理：
 
