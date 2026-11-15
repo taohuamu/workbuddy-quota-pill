@@ -64,10 +64,10 @@ Not every record carries `quota`: measured on this machine, about half of deepse
 To estimate the runway, it derives three things from that:
 
 1. Window: `reset_at` minus 24 hours — only records inside that window count
-2. Observation: count how many **cells** were consumed in the last 15 minutes (positive steps between adjacent snapshots, rollbacks count as zero)
-3. Runway: turn that count into a quantile of the waiting time — the median gives "about X minutes to the limit", with a range when there are enough samples
+2. Observation: count how many **percentage points** were consumed in the last 15 minutes (positive steps between adjacent snapshots, rollbacks count as zero)
+3. Runway: turn that increase into a quantile of the waiting time — the median gives "about X minutes to the limit", with a range when there are enough samples
 
-Why not end-point subtraction: at 1% granularity one cell in 15 minutes is 4 cells/hour, so a
+Why not end-point subtraction: at 1% granularity one point in 15 minutes is 4 points/hour, so a
 two-point difference carries 100% quantization error — and those dozens of snapshots in the window
 get reduced to two, while a ±1 server rollback turns into negative contribution.
 
