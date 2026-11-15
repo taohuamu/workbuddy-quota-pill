@@ -188,8 +188,16 @@ def human_time(epoch):
     return dt.datetime.fromtimestamp(epoch).strftime("%m-%d %H:%M")
 
 
-def build_report(window_min, warn_threshold):
-    snaps, n_files, n_rec = load_snapshots()
+def build_report(window_min, warn_threshold, loaded=None):
+    """loaded = (snaps, n_files, n_rec)。调用方已读过快照时传进来，省一次全量扫。
+
+    预测要用原始快照数格子，展示层又要报告——不传的话同一份日志要读两遍，
+    而全量扫是 0.4~0.7 秒量级，跟随刷新的窗口会明显卡一下。
+    """
+    if loaded is None:
+        snaps, n_files, n_rec = load_snapshots()
+    else:
+        snaps, n_files, n_rec = loaded
     if not snaps:
         return {"models": [], "error": "未找到配额快照（是否还没用 WorkBuddy 跑过对话？）",
                 "files": n_files, "records": n_rec}

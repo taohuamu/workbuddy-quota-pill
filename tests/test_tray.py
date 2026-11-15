@@ -34,11 +34,18 @@ def rep(*models):
     return {"models": list(models), "files": 3, "records": 9, "generated_at": "11-06 01:30"}
 
 
-def m(model, pct, level="ok", eta=None, verdict="按当前节奏够用", shared=None):
+def fc(eta_min=None, tier="ok", k=6, capped=False):
+    """构造一个 forecast 字典，字段与 forecast.decide() 的返回一致。"""
+    return {"tier": tier, "eta_min": eta_min, "k": k, "capped": capped,
+            "alert": False, "need": 30.0, "p": None, "why": ""}
+
+
+def m(model, pct, level="ok", eta=None, verdict="按当前节奏够用", shared=None, f=None):
     return {"model": model, "percent_used": pct, "percent_left": 100 - pct,
             "level": level, "eta_hours_to_limit": eta, "verdict": verdict,
             "shared_models": shared or [], "reset_local": "11-06 22:38",
-            "hours_to_reset": 21.0, "rate_pct_per_hour": 1.0, "rate_confidence": "high"}
+            "hours_to_reset": 21.0, "rate_pct_per_hour": 1.0, "rate_confidence": "high",
+            "forecast": f}
 
 
 def test_text():
@@ -224,16 +231,22 @@ def test_process():
 def test_rows():
     name, pct, sub = qt.row_texts(m("m1", 12))
     check("名称与百分比", name == "m1" and pct == "12%", f"{name} {pct}")
-    _, _, sub = qt.row_texts(m("m1", 90, "critical", eta=2.0))
-    check("危险行提示重置前耗尽", "重置前耗尽" in sub, sub)
-    _, _, sub = qt.row_texts(m("m1", 96, "critical", eta=2.0))
-    check("已到上限时改口为已满", "已到上限" in sub and "重置前耗尽" not in sub, sub)
-    _, _, sub = qt.row_texts(m("m1", 40, "ok", eta=2.5))
-    check("有预测时给触限时间", sub.startswith("预计") and "小时" in sub, sub)
-    _, _, sub = qt.row_texts(m("m1", 40, "idle", eta=None, verdict="样本不足，无法预测"))
-    check("无预测时退回验语", sub == "样本不足，无法预测", sub)
-    _, _, sub = qt.row_texts(m("m1", 40, "ok", eta=5.0, shared=["m2", "m3"]))
+    _, _, sub = qt.row_texts(m("m1", 90, "critical", f=fc(120)))
+    check("危险行给出到上限时间", sub == "约 2 小时后到上限", sub)
+    _, _, sub = qt.row_texts(m("m1", 96, "critical", f=fc(120)))
+    check("已到上限时改口为已满", "已到上限" in sub and "约" not in sub, sub)
+    _, _, sub = qt.row_texts(m("m1", 40, "ok", f=fc(150)))
+    check("正常行也给时间", sub.startswith("约 ") and "小时" in sub, sub)
+    _, _, sub = qt.row_texts(m("m1", 40, "ok", f=fc(None, "idle", k=0)))
+    check("无新增时说事实", sub == "近 15 分钟无新增", sub)
+    _, _, sub = qt.row_texts(m("m1", 40, "ok", f=fc(2400, "ok", capped=True)))
+    check("撑到重置时改口", "本周期内" in sub, sub)
+    _, _, sub = qt.row_texts(m("m1", 40, "idle", verdict="样本不足，无法预测"))
+    check("没有 forecast 时退回验语", sub == "样本不足，无法预测", sub)
+    _, _, sub = qt.row_texts(m("m1", 40, "ok", f=fc(300), shared=["m2", "m3"]))
     check("共用配额会标注", "2 个模型共用" in sub, sub)
+    _, _, sub = qt.row_texts(m("m1", 40, "ok", f=fc(40)))
+    check("副标题不报格数与速率", "格" not in sub and "/小时" not in sub, sub)
 
 
 def test_summary():
@@ -248,8 +261,12 @@ def test_summary():
     check("没有模型时返回 None", qt.latest_row({"models": []}) is None)
     check("摘要含档位与百分比", " 12% · " in lines[0] and lines[0].startswith("[正常]"), lines[0])
     check("摘要与小窗共用判决语", lines[0].endswith("按当前节奏够用"), lines[0])
-    check("摘要时间无多余空格", "小时后触限" in qt.summary_lines(
-        rep(m("a", 30, "warn", eta=2.0)))[0], lines)
+    check("摘要时间无多余空格", "小时后到上限" in qt.summary_lines(
+        rep(m("a", 30, "warn", f=fc(120))))[0], lines)
+    check("过期模型不进摘要", len(qt.summary_lines(
+        rep({"model": "old", "percent_used": 11, "level": "ok", "stale": True}))) == 1,
+        qt.summary_lines(rep({"model": "old", "percent_used": 11, "level": "ok",
+                              "stale": True})))
     err = qt.summary_lines({"models": [], "error": "没数据"})
     check("错误走单行", len(err) == 1 and "没数据" in err[0], err)
     check("空模型不返回空列表", qt.summary_lines({"models": []}) == ["配额胶囊：暂无数据"])

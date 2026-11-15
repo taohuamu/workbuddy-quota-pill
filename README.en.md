@@ -64,10 +64,15 @@ Not every record carries `quota`: measured on this machine, about half of deepse
 To estimate the runway, it derives three things from that:
 
 1. Window: `reset_at` minus 24 hours — only records inside that window count
-2. Burn rate: the change in `percent` across the window, divided by elapsed time (percentage points per hour)
-3. Runway: extrapolate the burn rate to 100% and estimate the time remaining
+2. Observation: count how many **cells** were consumed in the last 15 minutes (positive steps between adjacent snapshots, rollbacks count as zero)
+3. Runway: turn that count into a quantile of the waiting time — the median gives "about X minutes to the limit", with a range when there are enough samples
 
-When the sample window is too short or there are too few data points, no runway is shown; the report says "only N minutes of samples, no forecast yet".
+Why not end-point subtraction: at 1% granularity one cell in 15 minutes is 4 cells/hour, so a
+two-point difference carries 100% quantization error — and those dozens of snapshots in the window
+get reduced to two, while a ±1 server rollback turns into negative contribution.
+
+If nothing was consumed in the last 15 minutes, no time is shown — just "no increase in the last
+15 minutes". That is an observed fact; "no consumption" would be a guess.
 
 ## Startup and shutdown
 

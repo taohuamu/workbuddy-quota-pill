@@ -38,6 +38,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import quota_watch as qw  # noqa: E402
+import forecast  # noqa: E402  与技能版同一份预测实现
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP_MARK = "workbuddy"                      # 进程名前缀，WorkBuddy / WorkBuddyX 都算
@@ -111,6 +112,7 @@ LEVEL_ACCENT = PALETTE["light"]["level"]
 
 LEVEL_CN = {"critical": "危险", "warn": "注意", "ok": "正常", "idle": "待观察"}
 LEVEL_ORDER = {"critical": 0, "warn": 1, "ok": 2, "idle": 3}
+GATE_PCT = 80.0        # 与技能版同一条线：到了这里交给百分比条件，不再做速度判定
 
 
 def log(msg):
@@ -222,6 +224,23 @@ def pick_rows(rep, limit=3):
     return ordered[:limit], len(models)
 
 
+def scan_report(window_min, warn_h):
+    """读一次日志，同时产出报告与预测。
+
+    预测要数窗口内有几格，需要原始快照；报告也要同一份。分两次读就是两遍全量扫
+    （各 0.4~0.7 秒），跟随刷新的窗口会顿一下——`build_report(loaded=...)` 就是为这个留的口子。
+    """
+    loaded = qw.load_snapshots()
+    rep = qw.build_report(window_min, warn_h, loaded=loaded)
+    models = rep.get("models") or []
+    if models:
+        forecast.attach(models, loaded[0], window_min, warn_h,
+                        forecast.FLOOR_PCT, GATE_PCT)
+        rep["has_risk"] = any(m.get("level") == "critical"
+                              for m in models if not m.get("stale"))
+    return rep
+
+
 def bar_fill(pct, width):
     """进度条填充像素；非零配额至少留 2px，避免 1% 看起来像 0。"""
     try:
@@ -293,19 +312,18 @@ def app_state_from(wb_pids, window_pids):
 def row_texts(r):
     """一行模型要显示的三个文本：(名称, 百分比, 副标题)。
 
-    副标题跟随 README 的判定优先级：先看是否已到上限，再看是否重置前耗尽，
-    最后才给触限预测 —— 不能因为算出了 eta 就把「已用满」说成「还能撑 X 小时」。
+    副标题只给结果，不报依据。卡片宽度有限，写「近 15 分钟 +9 格（36 格/小时）」
+    会把长模型名那一行挤断；格数与速率留在详情页。
+    优先级仍是「已到上限 > 预测」，不能因为算出了时间就把「已用满」说成「还能撑 X 分钟」。
     """
     pct = r.get("percent_used", 0)
     pct_txt = f"{pct:g}%"
-    eta = r.get("eta_hours_to_limit")
     level = r.get("level")
+    fc = r.get("forecast")
     if level == "critical" and pct >= 95:
         sub = "已到上限，随时可能被拒"
-    elif level == "critical" and eta is not None:
-        sub = f"重置前耗尽 · 约 {qw.fmt_dur(eta)}后"
-    elif eta is not None:
-        sub = f"预计 {qw.fmt_dur(eta)}后触限"
+    elif fc is not None:
+        sub = forecast.phrase(fc, brief=True)
     else:
         sub = r.get("verdict") or ""
     if r.get("shared_models"):
@@ -327,11 +345,13 @@ def summary_lines(rep):
     """--print / 复制到剪贴板用的摘要，一行一个模型。
 
     判决语直接复用 row_texts，保证小窗和命令行不会各说各话。
+    只列本周期还有效的模型——与卡片同一条过滤，否则会冒出「停在上一周期的模型 11%」，
+    那是残值，不是当前占用。
     """
     if rep.get("error"):
         return ["配额胶囊：" + rep["error"]]
     out = []
-    for r in rep.get("models") or []:
+    for r in live_models(rep):
         name, pct, sub = row_texts(r)
         out.append(f"[{LEVEL_CN.get(r['level'], r['level'])}] {name} {pct} · {sub}")
     return out or ["配额胶囊：暂无数据"]
@@ -1722,7 +1742,8 @@ class TrayWindow:
             parts = []
             if total:
                 parts.append(f"共 {total} 个" +
-                             (f" · 还有 {total - len(rows)}" if total > len(rows) else ""))
+                             (f" · 另 {total - len(rows)} 个未显示"
+                              if total > len(rows) else ""))
             if stale:
                 parts.append(f"{stale} 个未用")
             note = " · ".join(parts) or None
@@ -1831,7 +1852,7 @@ class TrayWindow:
 
     def _scan(self):
         try:
-            rep = qw.build_report(self.args.window, self.args.warn)
+            rep = scan_report(self.args.window, self.args.warn)
         except Exception as exc:  # 读取失败不能拖垮小窗
             rep = {"models": [], "error": f"读取失败：{exc}"}
         self._pending = rep
@@ -2687,7 +2708,7 @@ class ReportWindow:
         # 概览行，与内容列对齐
         meta_y = y0 + px(self.META) // 2
         gen = self.report.get("generated_at") or "—"
-        info = (f"生成 {gen} · 增速窗口 {self.report.get('window_min', 60)} 分钟 · "
+        info = (f"生成 {gen} · 观测窗口 {self.report.get('window_min', 15)} 分钟 · "
                 f"统计口径 {self.report.get('cycle_hours', 24):g}h 周期 · "
                 f"{self.report.get('files', 0)} 个会话文件 / {self.report.get('records', 0)} 条快照")
         c.create_text(cx0, meta_y, anchor="w", text=info, font=self.f["small"], fill=p["sub"])
@@ -2832,17 +2853,16 @@ class ReportWindow:
 
         c.create_line(ix, top + px(98), ir, top + px(98), fill=p["edge_soft"])
 
-        rate = r.get("rate_pct_per_hour")
-        eta = r.get("eta_hours_to_limit")
+        fc = r.get("forecast") or {}
         line1 = [
             ("重置", str(r.get("reset_local") or "—")),
-            ("增速", f"{rate:g}%/h" if rate else "—"),
+            ("近 15 分钟", forecast.obs_cell(fc)),
             ("距重置", qw.fmt_dur(r.get("hours_to_reset"))),
         ]
         line2 = [
-            ("触限预测", f"约 {qw.fmt_dur(eta)}后" if eta is not None else "暂不预测"),
-            ("样本", f"{r.get('requests_cycle', r.get('requests', 0))} 次"),
-            ("置信", str(qw.CONF_CN.get(r.get("rate_confidence"), "—"))),
+            ("按此速度", forecast.eta_cell(fc)),
+            ("本周期请求", f"{r.get('requests_cycle', r.get('requests', 0))} 次"),
+            ("状态", LEVEL_CN.get(r.get("level"), "—")),
         ]
         self._meta_line(c, ix, top + px(116), line1)
         self._meta_line(c, ix, top + px(134), line2)
@@ -3005,7 +3025,7 @@ class ReportWindow:
 
     def _scan(self):
         try:
-            rep = qw.build_report(self.app.args.window, self.app.args.warn)
+            rep = scan_report(self.app.args.window, self.app.args.warn)
         except Exception as exc:
             rep = {"models": [], "error": f"读取失败：{exc}"}
         self._scanned = rep
@@ -3048,8 +3068,10 @@ def build_parser():
     ap.add_argument("--install", action="store_true", help="写入登录启动项，开机后静默待命")
     ap.add_argument("--uninstall", action="store_true", help="移除登录启动项")
     ap.add_argument("--always", action="store_true", help="不跟随 WorkBuddy，直接显示（调试/预览）")
-    ap.add_argument("--window", type=int, default=60, help="增速统计窗口（分钟，默认 60）")
-    ap.add_argument("--warn", type=float, default=3.0, help="预计触限小时数阈值（默认 3）")
+    ap.add_argument("--window", type=int, default=15,
+                    help="观测窗口（分钟），数窗口内涨了几格（默认 15）")
+    ap.add_argument("--warn", type=float, default=2.0,
+                    help="提前提醒的时限（小时），与技能版 --warn 同义（默认 2）")
     ap.add_argument("--max-rows", type=int, default=3, help="最多显示几个模型（默认 3）")
     ap.add_argument("--poll", type=float, default=1.5, help="显示状态下探测 WorkBuddy 的间隔秒数")
     ap.add_argument("--poll-idle", type=float, default=5.0,
@@ -3077,7 +3099,7 @@ def main(argv=None):
             log(f"{'tk' if _has_tkinter(exe) else '--'}  {exe}")
         return 0
     if args.print_only:
-        for line in summary_lines(qw.build_report(args.window, args.warn)):
+        for line in summary_lines(scan_report(args.window, args.warn)):
             log(line)
         return 0
     if args.install:
