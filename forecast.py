@@ -263,7 +263,9 @@ def decide(rows, now=None, window_min=WINDOW_MIN, horizon_h=HORIZON_H,
         out.update({"tier": "done", "why": "额度已耗尽"})
         return out
     if hours_to_reset is not None and hours_to_reset * 60.0 < window_min:
-        out.update({"tier": "none", "why": "距重置不足一个窗口"})
+        # 单独一个 tier：说「数据不足」是错的，快照其实很全，只是这个周期快结束了，
+        # 15 分钟的窗口已经跨过重置边界，数出来的格子会混进下一个周期。
+        out.update({"tier": "soon", "why": "距重置不足一个窗口"})
         return out
 
     k, n_ev = cells_of(hist, now - window_min * 60.0, now)
@@ -343,6 +345,8 @@ def phrase(fc, window_min=WINDOW_MIN, brief=False):
         return "近 %d 分钟无新增" % int(window_min)
     if tier == "done":
         return "已到上限"
+    if tier == "soon":
+        return "即将重置"
     if tier == "none":
         return "数据不足"
     eta = fc.get("eta_min")
@@ -362,6 +366,8 @@ def say(model, percent, fc, window_min=WINDOW_MIN):
 
 def obs_cell(fc):
     """表格「近 N 分钟」列。"""
+    if (fc or {}).get("tier") in ("none", "soon"):
+        return "—"          # 没有窗口可数，写「无新增」会被读成「没在消耗」
     k = (fc or {}).get("k") or 0
     return "+%d 格" % int(k) if k else "无新增"
 
@@ -369,6 +375,8 @@ def obs_cell(fc):
 def eta_cell(fc, window_min=WINDOW_MIN):
     """表格「按此速度」列。"""
     tier = (fc or {}).get("tier")
+    if tier == "soon":
+        return "即将重置"
     if tier in ("idle", "none"):
         return "—"
     if tier == "done":
