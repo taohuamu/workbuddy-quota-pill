@@ -368,12 +368,12 @@ def obs_cell(fc):
     """表格「近 N 分钟」列。
 
     对外只说「涨了几个百分点」——内部计数的单位就是百分比点（percent 是整数，1 格 = 1%），
-    没必要把「格」这个内部术语漏到界面上。
+    没必要把「格」这个内部术语漏到界面上。零增量照实写「涨 0%」：换成「持平」是替读者
+    做了一次解释，而 0 这个数字本身没有歧义。
     """
     if (fc or {}).get("tier") in ("none", "soon"):
-        return "—"          # 没有窗口可数，写「持平」会被读成「没在消耗」
-    k = (fc or {}).get("k") or 0
-    return "涨 %d%%" % int(k) if k else "持平"
+        return "—"          # 没有窗口可数，此时写 0% 才是误导
+    return "涨 %d%%" % int((fc or {}).get("k") or 0)
 
 
 def eta_cell(fc, window_min=WINDOW_MIN):
