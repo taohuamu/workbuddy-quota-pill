@@ -308,22 +308,13 @@ def decide(rows, now=None, window_min=WINDOW_MIN, horizon_h=HORIZON_H,
 LEVEL_RANK = {"critical": 0, "warn": 1, "ok": 2, "idle": 3}
 
 
-PACE_FLOOR = 20.0   # 已用不到这个比例，不因速度升级（剩余太多，几小时的外推最不可靠）
-
-
 def pace_exhausts(fc, hours_to_reset):
-    """按当前速度会不会在重置前到上限（用于升等级、点页脚、进注意行）。
+    """按当前速度会不会在重置前到上限。
 
-    三道闸门，缺一不可：
-    1. `tier == "ok"`：窗口内至少涨了 4 个百分点（k≥4），中位时间才收得紧；
-       样本更少（`few`）时同一状态的换算值能差十倍。
-    2. 已用 ≥ `PACE_FLOOR`：7% 就用 20 小时后的重置去比，标签只会喊狼来了。
-    3. 中位时间早于距重置：这才是「撑不到重置」本身。
+    只在证据够的时候算数：`tier == "ok"` 意味着窗口内至少涨了 4 个百分点（k≥4），
+    这时中位时间才收得紧；样本更少（`few`）时同一个状态的换算值能差十倍，不该拿它改等级。
     """
     if not fc or fc.get("tier") != "ok" or not hours_to_reset:
-        return False
-    p = fc.get("p")
-    if p is not None and p < PACE_FLOOR:
         return False
     eta = fc.get("eta_min")
     return bool(eta) and eta < hours_to_reset * 60.0
@@ -337,8 +328,8 @@ def level_of(pct, fc=None, hours_to_reset=None):
 
     0.5.0 曾把速度这一路整个删掉，理由是「等级只看百分比」。问题是有模型用掉 38%、
     按当前速度两小时后到上限，却显示「正常」，与同一张卡上的读数自相矛盾——用户一眼
-    就看出来了。加回来时带三道闸门（见 pace_exhausts）：9 天回放里 3.1% 的 tick 会
-    因此升级；样本少（6.5%）与已用不足 20% 的都不升。
+    就看出来了。加回来时加了证据门槛：9 天回放里只有 4.5% 的 tick 会因此升级，
+    另外 6.5%（样本少）不计。
     """
     if pct >= 95:
         return "critical"
@@ -362,16 +353,15 @@ def exhaust_summary(models):
         eta, h2r = fc.get("eta_min"), m.get("hours_to_reset")
         if not eta or not h2r or eta >= h2r * 60.0:
             continue
-        # 与等级用同一个闸门，免得「页脚点名了、状态却是正常」
-        (strong if pace_exhausts(fc, h2r) else weak).append(m)
+        (strong if fc.get("tier") == "ok" else weak).append(m)
     return strong, weak
 
 
 def exhaust_text(models, include_weak=True):
     """页脚那一句。没有模型会在重置前到上限时返回 None，由调用方说「没有」。
 
-    分两档写：过了闸门的直接点名；没过闸门的（样本少，或已用不足 20%）只作参考，
-    免得读的人拿它跟等级较劲——等级不给这两种情况升级。
+    分两档写：证据够的直接点名；样本少的（窗口内不足 4 个百分点）只作参考并说明原因，
+    免得读的人拿它跟等级较劲——等级不给这种情况升级。
     `include_weak=False` 给单行固定宽度的界面用（桌面报告窗的提示条），多一句就截断。
     """
     strong, weak = exhaust_summary(models)
@@ -380,11 +370,11 @@ def exhaust_text(models, include_weak=True):
             (m.get("forecast") or {}).get("eta_min"))) for m in strong[:2])
         txt = "按当前速度，%s到上限，早于重置。" % who
         if weak and include_weak:
-            txt += "%s 未计入（样本少或用量还低）。" % weak[0]["model"]
+            txt += "%s 样本少，未计入。" % weak[0]["model"]
         return txt
     if weak:
         who = "、".join(m["model"] for m in weak[:2])
-        return "按当前速度，%s 也撑不到重置，但样本少或用量还低，仅供参考。" % who
+        return "按当前速度，%s 撑不到重置，但样本少，仅供参考。" % who
     return None
 
 

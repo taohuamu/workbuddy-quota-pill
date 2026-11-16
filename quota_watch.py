@@ -334,15 +334,12 @@ def print_table(rep):
     print()
     # 页脚不能写死「没有模型会到上限」：那个结论得由读数算出来。曾经写死过一句
     # 「按当前速度，没有模型会在本周期内到上限」，而同屏某行正写着「约 2 小时后到上限」。
-    strong, weak = forecast.exhaust_summary(live)
+    fast = forecast.exhaust_text(live)
     if rep["has_risk"]:
         print("  [!!] 有模型存在触限风险。建议：先把长任务的关键结论落盘，再切到其他模型继续，")
         print("       或把大批量工作拆成小步，避免在额度耗尽时丢失上下文。")
-    elif strong:
-        print("  [! ] %s建议先把长任务的关键结论落盘。" % forecast.exhaust_text(live))
-    elif weak:
-        # 只作参考的（样本少 / 用量还低）用中性标记：它不构成告警，也不给行动建议
-        print("  [i ] %s" % forecast.exhaust_text(live))
+    elif fast:
+        print("  [! ] %s建议先把长任务的关键结论落盘。" % fast)
     else:
         print("  [ok] 按当前速度，没有模型会在本周期内到上限。")
     print(f"  提示：百分比粒度为整数；「按此速度」只看最近 {win} 分钟，停手后这个数会消失。")
