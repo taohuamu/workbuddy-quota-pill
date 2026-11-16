@@ -453,6 +453,21 @@ def test_wb_pid_cache():
     qt._WB_PID_CACHE["ts"] = time.time()
     qt.wb_process_ids()
     check("缓存 pid 失效时重扫", qt._WB_PID_CACHE["pids"] != frozenset({-1}))
+    # 受限身份的服务进程（Workbuddy Remote Service 以 SYSTEM 起）拿不到 exe 路径，
+    # 但进程还在。判成失效的话缓存永远命中不了，每 1.5 秒全量枚举一次。
+    real = qt.proc_exe_ex
+    try:
+        qt.proc_exe_ex = lambda pid: ("", 5)          # 拒绝访问：在，只是读不到
+        check("读不到路径但进程在 → 仍认缓存", qt._cached_pid_still_wb(4321) is True)
+        qt.proc_exe_ex = lambda pid: ("", 87)         # 参数无效：已经退出了
+        check("pid 已退出 → 缓存作废", qt._cached_pid_still_wb(4321) is False)
+        qt.proc_exe_ex = lambda pid: ("D:\\Other\\thing.exe", 0)
+        check("pid 被别的进程复用 → 缓存作废",
+              qt._cached_pid_still_wb(4321) is False)
+        qt.proc_exe_ex = lambda pid: ("D:\\WorkBuddy\\WorkBuddy.exe", 0)
+        check("路径仍是 WorkBuddy → 认缓存", qt._cached_pid_still_wb(4321) is True)
+    finally:
+        qt.proc_exe_ex = real
     qt._WB_PID_CACHE["pids"] = frozenset()
     qt._WB_PID_CACHE["ts"] = 0.0
 

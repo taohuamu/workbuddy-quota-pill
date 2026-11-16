@@ -501,10 +501,17 @@ _WB_PID_CACHE = {"pids": frozenset(), "ts": 0.0}
 WB_RESCAN_EVERY = 20.0     # 秒：兜底全量重扫，防漏掉新起的 WorkBuddy 进程
 
 
-def proc_exe(pid):
-    """pid → exe 全路径；进程不在或无权限返回空串。单次约 0.05ms。"""
+_ERROR_ACCESS_DENIED = 5
+
+
+def proc_exe_ex(pid):
+    """pid → (exe 全路径, OpenProcess 的错误码)。成功时错误码为 0。
+
+    错误码要单独交出来：「打不开」有两种完全不同的意思——进程没了（87），
+    和进程在但权限不够（5）。缓存复验必须分清这两种，见 `_cached_pid_still_wb`。
+    """
     if os.name != "nt":
-        return ""
+        return "", 0
     try:
         k32 = ctypes.WinDLL("kernel32", use_last_error=True)
         k32.OpenProcess.argtypes = (ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong)
@@ -515,17 +522,39 @@ def proc_exe(pid):
         k32.QueryFullProcessImageNameW.restype = ctypes.c_int
         h = k32.OpenProcess(0x1000, False, int(pid))  # QUERY_LIMITED_INFORMATION
         if not h:
-            return ""
+            return "", ctypes.get_last_error()
         try:
             size = ctypes.c_ulong(1024)
             buf = ctypes.create_unicode_buffer(1024)
             if not k32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)):
-                return ""
-            return buf.value
+                return "", ctypes.get_last_error()
+            return buf.value, 0
         finally:
             k32.CloseHandle(h)
     except Exception:
-        return ""
+        return "", -1
+
+
+def proc_exe(pid):
+    """pid → exe 全路径；进程不在或无权限返回空串。单次约 0.05ms。"""
+    return proc_exe_ex(pid)[0]
+
+
+def _cached_pid_still_wb(pid):
+    """缓存复验：这个 pid 现在还算不算 WorkBuddy。
+
+    三种情况分开：
+    - 读得到路径 → 按 exe 名判。Windows 会复用 pid，这是防复用的关键一关。
+    - 打不开、报参数无效（87）→ 进程已经退出了，缓存作废、重扫。
+    - 打不开、报拒绝访问（5）→ 进程在，只是以受限身份运行。`Workbuddy Remote Service`
+      就是以 SYSTEM 起的服务，路径永远读不到；这类 pid 只有名字这一条线索，而它当初
+      正是靠名字被收进来的，所以照收。不这样分，缓存每轮都被判失效，1.5 秒一次全量
+      枚举，缓存等于没有。
+    """
+    exe, err = proc_exe_ex(pid)
+    if exe:
+        return is_wb_exe(exe)
+    return err == _ERROR_ACCESS_DENIED
 
 
 def wb_process_ids(force=False, now=None):
@@ -538,11 +567,12 @@ def wb_process_ids(force=False, now=None):
 
     为什么不能只看「pid 还活着」：Windows 会复用 pid，旧 pid 被别的进程接管后，
     光 OpenProcess 成功会把它误判成 WorkBuddy —— 必须再核对一次 exe 名。
+    但「读不到 exe」不等于「不是 WorkBuddy」，见 `_cached_pid_still_wb`。
     """
     now = time.time() if now is None else now
     cached = _WB_PID_CACHE["pids"]
     if (not force and cached and now - _WB_PID_CACHE["ts"] < WB_RESCAN_EVERY
-            and all(is_wb_exe(proc_exe(p)) for p in cached)):
+            and all(_cached_pid_still_wb(p) for p in cached)):
         return set(cached)
     pids = {pid for pid, name in win_processes() if is_wb_exe(name)}
     _WB_PID_CACHE["pids"] = frozenset(pids)
