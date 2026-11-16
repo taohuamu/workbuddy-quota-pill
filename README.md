@@ -125,7 +125,7 @@ WorkBuddy 退出后，本工具在 10 秒后自行结束进程，只剩看门狗
 5. **「周期」不是自然日**：周期为 24 小时滚动窗口，不是每天 0 点重置。各模型的结束时刻由
    服务端下发，从首次使用起算，互不相同。报告窗直接显示「3.5 小时后重置」。
 6. **胶囊不出现**：WorkBuddy 未运行时它不显示。若 WorkBuddy 正在运行仍无显示，查看
-   `%LOCALAPPDATA%\quota-watch\tray.log` 末尾几行。
+   `%LOCALAPPDATA%\quota-pill\tray.log` 末尾几行。
 7. **双击 `tray.bat` 没有反应**：多为 Python 缺少 tkinter。在解压目录运行
    `python quota_tray.py --which`，输出中应含以 `tk` 开头的一行。
 8. **数字和账号余额对不上**：这里显示的是单个模型在本周期用掉的额度，不是账号积分余额，

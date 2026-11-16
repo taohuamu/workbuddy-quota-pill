@@ -319,6 +319,69 @@ def test_startup():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_legacy_migration():
+    """改名迁移：状态文件与自启项都要跟过来，且不许覆盖已有的新配置。"""
+    base = tempfile.mkdtemp(prefix="qw-migrate-")
+    appdata = os.path.join(base, "appdata")
+    os.makedirs(appdata, exist_ok=True)
+    old_state, old_legacy = qt.STATE_DIR, qt.LEGACY_STATE_DIR
+    old_appdata, old_install = os.environ.get("APPDATA"), qt.install_startup
+    legacy = os.path.join(base, "quota-watch")
+    new = os.path.join(base, "quota-pill")
+
+    def write(path, text):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+
+    try:
+        os.environ["APPDATA"] = appdata
+        qt.STATE_DIR, qt.LEGACY_STATE_DIR = new, legacy
+        check("没有旧目录时迁移是空操作", qt.migrate_legacy_state() == "")
+
+        # 1) 只有旧目录：文件搬过去，搬空的旧目录删掉
+        write(os.path.join(legacy, "tray.json"), "{}")
+        write(os.path.join(legacy, "suppress"), "1")
+        note = qt.migrate_legacy_state()
+        check("旧状态文件搬到新目录",
+              os.path.exists(os.path.join(new, "tray.json"))
+              and os.path.exists(os.path.join(new, "suppress"))
+              and not os.path.exists(legacy), note)
+        check("迁移写进说明", "已迁移状态文件" in note, note)
+
+        # 2) 新目录已有同名文件：不覆盖，旧文件留着
+        write(os.path.join(legacy, "tray.json"), "old")
+        write(os.path.join(new, "tray.json"), "new")
+        qt.migrate_legacy_state()
+        with open(os.path.join(new, "tray.json"), encoding="utf-8") as fh:
+            kept = fh.read()
+        check("新配置不被旧文件覆盖",
+              kept == "new" and os.path.exists(os.path.join(legacy, "tray.json")), kept)
+
+        # 3) 旧自启项：删掉，并按「原来开着」的意图用新名字重装
+        write(qt.legacy_startup_file(), "old")
+        qt.install_startup = lambda: (write(qt.startup_file(), "new"), (True, "stub"))[1]
+        note = qt.migrate_legacy_state()
+        check("旧自启项被移除",
+              not os.path.exists(qt.legacy_startup_file()), note)
+        check("按新名字重装看门狗", os.path.exists(qt.startup_file()), note)
+
+        # 4) 撤销自启时旧名字也要清掉，否则「取消」只取消了一半
+        write(qt.legacy_startup_file(), "old")
+        ok, msg = qt.uninstall_startup()
+        check("撤销自启连旧名字一起删",
+              ok and not os.path.exists(qt.startup_file())
+              and not os.path.exists(qt.legacy_startup_file()), msg)
+    finally:
+        qt.STATE_DIR, qt.LEGACY_STATE_DIR = old_state, old_legacy
+        qt.install_startup = old_install
+        if old_appdata is None:
+            os.environ.pop("APPDATA", None)
+        else:
+            os.environ["APPDATA"] = old_appdata
+        shutil.rmtree(base, ignore_errors=True)
+
+
 def test_lifecycle():
     # 不跟随：立刻显示，之后一直保持
     lc = qt.Lifecycle(follow=False)
@@ -585,6 +648,7 @@ if __name__ == "__main__":
     test_rows()
     test_summary()
     test_startup()
+    test_legacy_migration()
     test_lifecycle()
     test_state_file()
     test_layout_state()

@@ -228,7 +228,7 @@ python quota_tray.py --always     # 不看 WorkBuddy，强制显示（预览与�
 
 默认落点为距工作区右边 8、下边 35（Tk 单位，150% 缩放下即物理 12 / 52），落在任务栏上方的输入法悬浮栏之上。
 
-布局存于 `%LOCALAPPDATA%\quota-watch\tray.json` 的 `layout` 子树，`tray` 与 `report` 两段，均为「距工作区右下角的偏移」：
+布局存于 `%LOCALAPPDATA%\quota-pill\tray.json` 的 `layout` 子树，`tray` 与 `report` 两段，均为「距工作区右下角的偏移」：
 
 ```json
 {"layout": {"tray": {"dx": 24, "dy": 51}, "report": {"dx": 261, "dy": 493}, "saved_at": "11-07 01:20"}}

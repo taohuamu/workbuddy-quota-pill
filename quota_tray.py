@@ -42,11 +42,16 @@ import forecast  # noqa: E402  与技能版同一份预测实现
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP_MARK = "workbuddy"                      # 进程名前缀，WorkBuddy / WorkBuddyX 都算
-STARTUP_NAME = "quota-watch-tray.vbs"
-STATE_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "quota-watch")
+STARTUP_NAME = "quota-pill-tray.vbs"
+_STATE_ROOT = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+STATE_DIR = os.path.join(_STATE_ROOT, "quota-pill")
 STATE_FILE = os.path.join(STATE_DIR, "tray.json")
 LOG_FILE = os.path.join(STATE_DIR, "tray.log")
 SUPPRESS_FILE = os.path.join(STATE_DIR, "suppress")   # 手动关窗后 15 分钟内别自动弹回
+# 0.2.1 之前这两处都叫 quota-watch（跟着当时的压缩包名）。改名必须带迁移：
+# 不迁的话老用户的位置、主题、阈值、日志与自启项全部失联，等于重新配一遍。
+LEGACY_STATE_DIR = os.path.join(_STATE_ROOT, "quota-watch")
+LEGACY_STARTUP_NAME = "quota-watch-tray.vbs"
 
 # ── 配色：两套调色板，跟随系统深浅色 ─────────────────────────────────────
 # 透明色键：Tk 的无边框窗口靠它抠出圆角，任何设计里都不能用到这个颜色。
@@ -871,6 +876,60 @@ def startup_file():
     return os.path.join(startup_dir(), STARTUP_NAME)
 
 
+def legacy_startup_file():
+    return os.path.join(startup_dir(), LEGACY_STARTUP_NAME)
+
+
+def migrate_legacy_state():
+    """把 `quota-watch` 时期的状态文件与自启项搬过来。返回一句说明，没事可做时返回空串。
+
+    逐个文件搬、且只在目标不存在时搬：这样即使某个进程还握着旧文件（Windows 下目录里
+    有打开的文件就搬不动），也只是留下它、下次再来，不会覆盖新配置。旧目录搬空后删掉，
+    免得每次启动都重扫一遍。
+
+    自启项必须一起处理：旧的 `quota-watch-tray.vbs` 指向旧目录，旧目录还在就会开机拉起
+    旧代码，两个实例还会打架。原来开着自启（旧文件在）就按新名字重装一次，原来是关着的
+    就别凭空给他装上。
+    """
+    notes = []
+    if os.path.isdir(LEGACY_STATE_DIR):
+        moved = []
+        try:
+            os.makedirs(STATE_DIR, exist_ok=True)
+            for name in sorted(os.listdir(LEGACY_STATE_DIR)):
+                src = os.path.join(LEGACY_STATE_DIR, name)
+                dst = os.path.join(STATE_DIR, name)
+                if not os.path.isfile(src) or os.path.exists(dst):
+                    continue
+                try:
+                    shutil.move(src, dst)
+                    moved.append(name)
+                except OSError:
+                    continue                      # 被占用：留着，下次再搬
+        except OSError as exc:
+            notes.append("状态目录迁移跳过：%s" % exc)
+        if moved:
+            notes.append("已迁移状态文件：" + "、".join(moved))
+        try:
+            if os.path.isdir(LEGACY_STATE_DIR) and not os.listdir(LEGACY_STATE_DIR):
+                os.rmdir(LEGACY_STATE_DIR)
+        except OSError:
+            pass
+
+    old = legacy_startup_file()
+    if os.path.exists(old):
+        try:
+            os.remove(old)
+        except OSError as exc:
+            notes.append("旧自启项删不掉：%s" % exc)
+            return "；".join(notes)
+        notes.append("已移除旧自启项")
+        if not os.path.exists(startup_file()):
+            ok, msg = install_startup()
+            notes.append("已按新名字重装看门狗" if ok else "重建自启项失败：%s" % msg)
+    return "；".join(notes)
+
+
 def install_startup():
     """安装「看门狗」，而不是直接拉起小窗。
 
@@ -909,13 +968,21 @@ def install_startup():
 
 
 def uninstall_startup():
-    p = startup_file()
-    if os.path.exists(p):
+    """移除自启项。旧名字也一并清掉——改名后用户点「取消开机自启」，
+    只删新文件会把旧的那条留在 Startup 里继续拉起。"""
+    removed, problems = [], []
+    for path in (startup_file(), legacy_startup_file()):
+        if not os.path.exists(path):
+            continue
         try:
-            os.remove(p)
-            return True, "已移除开机启动项。"
+            os.remove(path)
+            removed.append(os.path.basename(path))
         except OSError as exc:
-            return False, f"删除失败：{exc}"
+            problems.append("%s：%s" % (os.path.basename(path), exc))
+    if problems:
+        return False, "删除失败：" + "；".join(problems)
+    if removed:
+        return True, "已移除开机启动项（%s）。" % "、".join(removed)
     return True, "开机启动项本来就不存在。"
 
 
@@ -3137,6 +3204,11 @@ def main(argv=None):
         args.window = int(forecast.WINDOW_MIN)
     args.poll = max(0.2, float(args.poll or 1.5))
     args.poll_idle = max(args.poll, float(args.poll_idle or 5.0))
+
+    # 改名迁移要赶在任何 log() 之前：log 会创建新目录，搬完才知道该往哪儿写
+    note = migrate_legacy_state()
+    if note:
+        log("状态迁移：" + note)
 
     if args.which:
         for exe in python_candidates():
