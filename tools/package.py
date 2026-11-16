@@ -21,7 +21,7 @@ import zipfile
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_ROOT = os.path.join(HERE, "dist")
-TOP = "quota-watch"
+TOP = "quota-pill"          # 压缩包内的顶层目录，也是包名的前缀（2026-11-16 起，原 quota-watch）
 
 FILES = [
     "quota_tray.py",
@@ -124,7 +124,7 @@ def build(tag):
               newline="\r\n") as fh:
         fh.write(UNINSTALL_BAT)
 
-    zip_path = os.path.join(OUT_ROOT, "quota-watch-%s.zip" % tag)
+    zip_path = os.path.join(OUT_ROOT, "%s-%s.zip" % (TOP, tag))
     if os.path.exists(zip_path):
         os.remove(zip_path)
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
