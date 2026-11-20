@@ -72,6 +72,27 @@ T1–T10 见文末历史表，本轮全量复跑通过。
 
 ---
 
+## 收敛后回流一（2026-11-20 23:42 · 仅打包自查文案，D11）
+
+D10 收尾时重打发布包，顺带核对「包内文件 vs 仓库源码」，发现两处旧名字残留：
+
+- **[B16] P2**　`tools/package.py` 末尾「分发前自查」第 2 条仍印
+  `Startup 里出现 quota-watch-tray.vbs`。运行时已在 `354c056` 改名 `quota-pill-tray.vbs`，
+  照这条自查的人会在 Startup 里找不到文件，把「已装好」误判成「自启失败」。
+- **[B17] P3**　`tests/test_core.py` 的模块 docstring 与运行横幅都写「quota-watch 回归测试」。
+
+处置 `[C34]`：两处文案改成 quota-pill，逻辑一行未动。
+验证：core 69/69、tray 193/193；重打包 `quota-pill-v0.2.1-beta.zip`（8 文件 66 KB，
+sha256 `b4e0b7b5`），解压后三模块可导入、`clamp_rows(0)=3`、`clamp_refresh(0)=5.0`、
+`quota_watch.py` 能出表；包自检 PASS。
+
+**同时确认的既有问题（不改，交发布者）**：远端 `v0.2.1-beta` 的附件是 `354c056` 时打的包
+（sha256 `82e202d8`），不含 D8/D9 的 `clamp_rows` / `clamp_refresh`，说明书也是改前版本。
+本地已按当前源码重打，旧件留在 `dist/quota-pill-v0.2.1-beta.published.zip` 备查；
+换不换附件由发布者决定，我不动 Release。
+
+---
+
 # 历史：第四周期（D1–D5 · 已结束）
 
 轮次：5 / 5（D1–D5，**已结束**）

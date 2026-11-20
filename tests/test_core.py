@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-quota-watch 回归测试（无第三方依赖，直接 python tests/test_core.py）
+quota-pill 回归测试（无第三方依赖，直接 python tests/test_core.py）
 
 不读取真实会话日志：所有 build_report 用例都在临时目录里伪造 jsonl，
 只有纯函数用例直接构造 dict。
@@ -410,7 +410,7 @@ def test_footer():
 
 
 if __name__ == "__main__":
-    print("quota-watch 回归测试")
+    print("quota-pill 回归测试")
     test_norm_reset()
     test_fmt_dur()
     test_burn_rate()

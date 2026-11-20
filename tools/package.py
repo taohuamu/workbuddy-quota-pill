@@ -159,7 +159,7 @@ def main(argv):
             print("  %7d  %s" % (info.file_size, info.filename))
     print("\n分发前自查：")
     print("  1. 解压到空目录，双击 tray.bat 能出现胶囊")
-    print("  2. 右键「开机自动待命」勾上后，Startup 里出现 quota-watch-tray.vbs")
+    print("  2. 右键「开机自动待命」勾上后，Startup 里出现 quota-pill-tray.vbs")
     print("  3. 关掉 WorkBuddy，小窗 10 秒内自己退出")
     return 0
 
