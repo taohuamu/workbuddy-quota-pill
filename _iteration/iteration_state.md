@@ -1,4 +1,78 @@
-# 迭代状态（桌面版 · 第四周期 · 已结束）
+# 迭代状态（桌面版 · 第五周期）
+
+轮次：5 / 5（D6–D10 完成 · 迭代结束）
+迭代对象：`D:\AI_work\WorkBuddy_work\2026-11-05-22-37-57\workbuddy-quota-pill`
+基线备份路径：`_iteration/baseline_20261120_2302.zip`（git archive，`354c056`，260 KB）
+起始版本：v0.2.1（本周期只改文档与说明，不动运行行为）
+上一周期：`迭代报告_D1..D5.md` + `总结报告_D1-D5.md`（收敛于 v0.2.1）
+本周期报告：`迭代报告_D6..D10.md`；总结见 `总结报告_D6-D10.md`
+技能版：R11–R15 已结束，见 `workbuddy-quota-pill-skills/_iteration/`
+
+## 已修 Bug 清单（本周期）
+
+- [B8] P2　`README.en.md` 有两段重复的排查条目（5–8 出现两次、编号从 5 重来）。
+- [B9] P2　`README.en.md` 仍写 `%LOCALAPPDATA%\quota-watch\tray.log`——运行时已改名
+  `quota-pill`，照它去找日志会扑空。
+- [B10] P2　`docs/design.md` 说「`shared_models` 目前观测为空」，实测 5948 条快照里 14 条
+  带该字段（`hy4-flash` 与 `hy4free` 共用）。
+- [B11] P3　`docs/design.md` 的 TODO 写死「3112 行」，实际 3250 行。
+- [B12] P2　`使用说明.md` 的「包内文件」表缺 `forecast.py`（包里已含，清单没跟）。
+- [B13] P2　`--max-rows 0` 让卡片返回空行、`-1` 被当成切片少画一行（高度按 1 行算，对不上）。
+- [B14] P2　`--refresh 0/负数` 让刷新判据恒真，每个轮询周期重扫日志（0.4–0.7 秒）。
+- [B15] P2　`README.md` / `使用说明.md` 的覆盖率写「deepseek 约一半、hy4 不足一成」，
+  实测 67% 与 10.7%。
+
+## 待修 Bug 清单
+
+无 P0 / P1。
+
+## 观察项与不做事项
+
+- **观察 [O3]**：`quota_watch.py` 的 `elif conf == "idle"` 分支不可达（`idle` 不在
+  `("low","none")` 里）。删它要两仓同改，价值低，**不做**；design.md 已如实记录。
+- 历史观察项（第四周期）见文末。
+
+## 回归用例集（本周期新增）
+
+| 编号 | 预期 | 执行方式 | 当前 |
+|---|---|---|---|
+| T11 | 英文 README 无重复排查段 | `grep -c "The pill doesn't appear"` = 1 | 通过 |
+| T12 | 英文 README 不再出现 `quota-watch` 路径 | `grep -c quota-watch README.en.md` = 0 | 通过 |
+| T13 | design.md 不再宣称 `shared_models` 恒空 | 文本比对 | 通过 |
+| T14 | 说明书包内文件与 `FILES` 一一对应 | 清单比对 | 通过 |
+| T15 | `--max-rows` 边界夹取（0/负/非数字） | `tests/test_tray.py` | 通过 |
+| T16 | `--refresh` 下限 5 秒 | 同上 | 通过 |
+| T17 | 文档覆盖率与实测一致 | 统计脚本 + grep | 通过 |
+
+T1–T10 见文末历史表，本轮全量复跑通过。
+
+## 上轮改动结果（D6）
+
+- [C27] 保留　`README.en.md` 去重复段（B8）
+- [C28] 保留　`README.en.md` 日志路径改 `quota-pill`（B9）
+- [C29] 保留　`design.md` 的 `shared_models` 结论按实测改写 + TODO 去掉死数字（B10/B11）
+- [C30] 保留　`使用说明.md` 包内文件表补 `forecast.py`（B12）
+- [C31] 保留　新增 `clamp_rows()` + 5 条用例（B13）
+- [C32] 保留　新增 `clamp_refresh()`（下限 5 秒）+ 4 条用例 + help（B14）
+- [C33] 保留　README / 使用说明的覆盖率改「约三分之二」「约一成」（B15）
+
+## 连续无实质改进轮数
+
+0
+
+## 收敛判定
+
+**迭代结束**。原因：达到最大轮次（5/5）；待修清单为空；core 69/69、tray 193/193 全通过。
+剩余事项：v0.2.1-beta 的附件是改前打的包（说明书已更新，需发布者决定是否重打）；
+`quota_watch.py` 的不可达分支按 O3 不做。
+
+## 中断标记
+
+无
+
+---
+
+# 历史：第四周期（D1–D5 · 已结束）
 
 轮次：5 / 5（D1–D5，**已结束**）
 迭代对象：`D:\AI_work\WorkBuddy_work\2026-11-05-22-37-57\workbuddy-quota-pill`

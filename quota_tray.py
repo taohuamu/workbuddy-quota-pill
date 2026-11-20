@@ -221,6 +221,35 @@ def latest_row(rep):
                                     int(r.get("requests") or 0)))
 
 
+def clamp_rows(value, default=3):
+    """`--max-rows` 的夹取：0、负数与非数字一律回落默认。
+
+    不夹会出两种错：`0` 让 `pick_rows` 返回空列表，而卡片高度按 1 行算，展开后是一条空行；
+    负数会被当成切片 `ordered[:-1]`，少画最后一行、还与算出来的高度对不上。
+    """
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return default
+    return n if n >= 1 else default
+
+
+def clamp_refresh(value, default=60.0, floor=5.0):
+    """`--refresh` 的下限：小于 floor 一律抬到 floor。
+
+    刷新判据是「距上次刷新 ≥ refresh 秒」。传 0 或负数时该条件恒为真，于是**每个轮询
+    周期**（1.5 秒）都重扫一遍日志（每次 0.4–0.7 秒），看着像卡死；而 0 很容易被当成
+    「不自动刷新」去试。
+    """
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return default
+    if v != v:                  # NaN
+        return default
+    return max(floor, v)
+
+
 def pick_rows(rep, limit=3):
     """报告 → (展示用前 N 行, 模型总数)。排序与 build_report 一致：先危险后百分比。"""
     models = live_models(rep)
@@ -3183,7 +3212,8 @@ def build_parser():
     ap.add_argument("--poll", type=float, default=1.5, help="显示状态下探测 WorkBuddy 的间隔秒数")
     ap.add_argument("--poll-idle", type=float, default=5.0,
                     help="--resident 待命（应用已退出）时的探测间隔秒数（默认 5，省点 CPU）")
-    ap.add_argument("--refresh", type=float, default=60.0, help="重新读日志的间隔秒数（默认 60）")
+    ap.add_argument("--refresh", type=float, default=60.0,
+                    help="重新读日志的间隔秒数（默认 60，小于 5 按 5）")
     ap.add_argument("--grace", type=float, default=300.0,
                     help="启动后等 WorkBuddy 出现的秒数，超时自行退出（0=一直等）")
     ap.add_argument("--no-topmost", dest="topmost", action="store_false", default=True,
@@ -3204,6 +3234,8 @@ def main(argv=None):
         args.window = int(forecast.WINDOW_MIN)
     args.poll = max(0.2, float(args.poll or 1.5))
     args.poll_idle = max(args.poll, float(args.poll_idle or 5.0))
+    args.max_rows = clamp_rows(args.max_rows)
+    args.refresh = clamp_refresh(args.refresh)
 
     # 改名迁移要赶在任何 log() 之前：log 会创建新目录，搬完才知道该往哪儿写
     note = migrate_legacy_state()

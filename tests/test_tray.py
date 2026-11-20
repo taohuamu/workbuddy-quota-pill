@@ -99,6 +99,20 @@ def test_pick_rows():
     check("其次按百分比降序", rows[1]["model"] == "b", rows[1]["model"])
     rows, total = qt.pick_rows({"models": []}, 3)
     check("空报告返回空行", rows == [] and total == 0)
+    # --max-rows 边界（D8：0 会画出空行，负数被当成切片）
+    check("max-rows 0 回落默认", qt.clamp_rows(0) == 3, qt.clamp_rows(0))
+    check("max-rows 负数回落默认", qt.clamp_rows(-2) == 3, qt.clamp_rows(-2))
+    check("max-rows 非数字回落默认", qt.clamp_rows("abc") == 3, qt.clamp_rows("abc"))
+    check("max-rows 正常值原样保留", qt.clamp_rows(5) == 5, qt.clamp_rows(5))
+    data = rep(m("a", 10), m("b", 90, "warn"), m("c", 20, "critical"))
+    check("夹取后不会切出空卡片",
+          len(qt.pick_rows(data, qt.clamp_rows(0))[0]) == 3,
+          len(qt.pick_rows(data, qt.clamp_rows(0))[0]))
+    # --refresh 的下限（D9：0 会让刷新判据恒真，每个轮询周期重扫一遍日志）
+    check("refresh 0 抬到下限", qt.clamp_refresh(0) == 5.0, qt.clamp_refresh(0))
+    check("refresh 负数抬到下限", qt.clamp_refresh(-3) == 5.0, qt.clamp_refresh(-3))
+    check("refresh 正常值原样保留", qt.clamp_refresh(30) == 30.0, qt.clamp_refresh(30))
+    check("refresh 非数字回落默认", qt.clamp_refresh("x") == 60.0, qt.clamp_refresh("x"))
 
 
 def test_bar():
