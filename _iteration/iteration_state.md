@@ -3,7 +3,7 @@
 轮次：5 / 5（D6–D10 完成 · 迭代结束）
 迭代对象：`D:\AI_work\WorkBuddy_work\2026-11-05-22-37-57\workbuddy-quota-pill`
 基线备份路径：`_iteration/baseline_20261120_2302.zip`（git archive，`354c056`，260 KB）
-起始版本：v0.2.1（本周期只改文档与说明，不动运行行为）
+起始版本：v0.2.1（本周期改文档 + 三个入口的参数夹取 `--max-rows` / `--refresh`，默认行为不变）
 上一周期：`迭代报告_D1..D5.md` + `总结报告_D1-D5.md`（收敛于 v0.2.1）
 本周期报告：`迭代报告_D6..D10.md`；总结见 `总结报告_D6-D10.md`
 技能版：R11–R15 已结束，见 `workbuddy-quota-pill-skills/_iteration/`
