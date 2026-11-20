@@ -83,11 +83,11 @@
 ### 命令行
 
 ```bash
-python quota_watch.py                 # 命令行表格（与界面同一套口径）
-python quota_watch.py --json          # 机器可读，每个在用模型带 forecast 子对象
-python quota_watch.py --window 45     # 观测窗口：数最近 45 分钟涨了几个百分点（默认 15）
-python quota_watch.py --warn 2        # 提前提醒时限：按此速度 2 小时内到上限就判 alert（默认 2）
-python quota_watch.py --warn-only     # 无风险时静默，适合定时任务
+python quota_pill.py                 # 命令行表格（与界面同一套口径）
+python quota_pill.py --json          # 机器可读，每个在用模型带 forecast 子对象
+python quota_pill.py --window 45     # 观测窗口：数最近 45 分钟涨了几个百分点（默认 15）
+python quota_pill.py --warn 2        # 提前提醒时限：按此速度 2 小时内到上限就判 alert（默认 2）
+python quota_pill.py --warn-only     # 无风险时静默，适合定时任务
 python quota_tray.py --window 30 --warn 3   # 界面：同上，窗口与时限可单独设
 ```
 
@@ -101,7 +101,7 @@ python quota_tray.py --window 30 --warn 3   # 界面：同上，窗口与时限�
 
 退出码：`0` 没有模型到 95%，`1` 存在 `critical`。配合 `--warn-only` 可让计划任务只在真正出问题时通知。
 
-Windows 下可双击 `run.bat`，等价于 `python quota_watch.py`，结束前暂停以便查看结果。
+Windows 下可双击 `run.bat`，等价于 `python quota_pill.py`，结束前暂停以便查看结果。
 
 ### 处理流程
 
@@ -113,7 +113,7 @@ Windows 下可双击 `run.bat`，等价于 `python quota_watch.py`，结束前�
 
 **三、换算成时间。** `λ|k ~ Gamma(k+½, W)`、`T|λ ~ Gamma(R, λ)`，于是 `T/(T+W) ~ Beta(R, k+½)`，取分位反解 `T`。主数用 50% 分位，`k≥4` 时才给 5%/95% 的区间。`k=0` 不给时间——那是「没观测到新增」，不是「消耗为零」。
 
-窗口锚点是当前时刻而非最后一条快照：一个模型三小时没动过，窗口就该是空的（「近 15 分钟无新增」），不能把它三小时前那阵爆发重新算一遍报给用户。`quota_watch.burn_rate()` 保留但不再参与任何显示（命令行、托盘、技能版都改走 `forecast`；`tests/test_core.py` 仍覆盖它）。
+窗口锚点是当前时刻而非最后一条快照：一个模型三小时没动过，窗口就该是空的（「近 15 分钟无新增」），不能把它三小时前那阵爆发重新算一遍报给用户。`quota_pill.burn_rate()` 保留但不再参与任何显示（命令行、托盘、技能版都改走 `forecast`；`tests/test_core.py` 仍覆盖它）。
 
 **四、周期口径**（`PERIOD_H = 24`）。配额池按 24 小时轮回。`reset_at` 是**下一次**重置时刻，故本周期起点为 `reset_at - 24h`。两处按此边界处理：
 
@@ -322,7 +322,7 @@ python quota_tray.py --always     # 不看 WorkBuddy，强制显示（预览与�
 
 ```
 workbuddy-quota-pill/
-├─ quota_watch.py      # 采集 + 周期口径 + 报告，数据层，单文件（与技能版逐字节同源）
+├─ quota_pill.py      # 采集 + 周期口径 + 报告，数据层，单文件（与技能版逐字节同源）
 ├─ forecast.py         # 预测：数百分点 → χ² 判定 → Beta 分位给时间（同样与技能版同源）
 ├─ quota_tray.py       # 常驻小窗（tkinter）：展示层 + 生命周期 + 深浅色主题
 ├─ README.md           # 中文首页（GitHub 默认展示）
@@ -362,4 +362,4 @@ python tests/test_tray.py    # 展示层
 - **不要尝试解密 `$wbEncrypted` 凭据信封。** 那是 WorkBuddy 5.6.0 起以应用运行时密钥加密的内容，解密等同窃取凭证。
 - **不要把 access token 写进代码或配置文件。** 当前版本刻意不涉及任何凭据。
 - **不要为了「更准」修改 percent 的取整口径。** 它是服务端下发的原始整数，任何平滑都会掩盖真实跳变。
-- **可以修改 `quota_watch.py`，但要连同测试与口径一起改。** 周期聚合与 `stale` 标记即在此处。修改 `build_report` 的字段或判定，必须同步 `tests/test_core.py` 与本文件「数据层」章节。
+- **可以修改 `quota_pill.py`，但要连同测试与口径一起改。** 周期聚合与 `stale` 标记即在此处。修改 `build_report` 的字段或判定，必须同步 `tests/test_core.py` 与本文件「数据层」章节。

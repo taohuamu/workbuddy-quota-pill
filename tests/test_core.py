@@ -15,7 +15,7 @@ import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import quota_watch as qw  # noqa: E402
+import quota_pill as qp  # noqa: E402
 
 PASS, FAIL = 0, 0
 
@@ -59,17 +59,17 @@ def write_case(proj_dir, rows):
 
 
 def test_norm_reset():
-    check("秒级时间戳原样保留", qw.norm_reset("1793975887") == 1793975887.0)
-    check("毫秒级时间戳被归一", qw.norm_reset(1793975887000) == 1793975887.0)
-    check("非法值返回 None", qw.norm_reset("abc") is None and qw.norm_reset(None) is None)
+    check("秒级时间戳原样保留", qp.norm_reset("1793975887") == 1793975887.0)
+    check("毫秒级时间戳被归一", qp.norm_reset(1793975887000) == 1793975887.0)
+    check("非法值返回 None", qp.norm_reset("abc") is None and qp.norm_reset(None) is None)
 
 
 def test_fmt_dur():
-    check("None 显示破折号", qw.fmt_dur(None) == "—")
-    check("负数显示已过期", qw.fmt_dur(-1) == "已过期")
-    check("半小时按分钟", qw.fmt_dur(0.5) == "30 分钟")
-    check("两小时按小时", qw.fmt_dur(2.0) == "2.0 小时")
-    check("三天按天", qw.fmt_dur(72) == "3.0 天")
+    check("None 显示破折号", qp.fmt_dur(None) == "—")
+    check("负数显示已过期", qp.fmt_dur(-1) == "已过期")
+    check("半小时按分钟", qp.fmt_dur(0.5) == "30 分钟")
+    check("两小时按小时", qp.fmt_dur(2.0) == "2.0 小时")
+    check("三天按天", qp.fmt_dur(72) == "3.0 天")
 
 
 def rows_at(start_s, span_min, pct_from, pct_to, steps=5):
@@ -84,34 +84,34 @@ def rows_at(start_s, span_min, pct_from, pct_to, steps=5):
 
 def test_burn_rate():
     rows = rows_at(0, 240, 10, 30)
-    rate, conf, span, d = qw.burn_rate(rows, 240)
+    rate, conf, span, d = qp.burn_rate(rows, 240)
     check("高置信：4 小时涨 20%", conf == "high" and abs(rate - 5.0) < 0.01, f"{rate} {conf}")
     check("跨度回传正确", abs(span - 240) < 0.5, span)
 
-    rate, conf, span, d = qw.burn_rate(rows, 60)
+    rate, conf, span, d = qp.burn_rate(rows, 60)
     check("窗口收窄后只取末段", conf == "medium" and abs(span - 60) < 0.5, f"{span} {conf}")
 
     rows = rows_at(0, 60, 10, 20)
-    rate, conf, span, d = qw.burn_rate(rows, 120)
+    rate, conf, span, d = qp.burn_rate(rows, 120)
     check("中置信：1 小时涨 10%", conf == "medium" and abs(rate - 10.0) < 0.01, f"{rate} {conf}")
 
     rows = rows_at(0, 10, 1, 2)
-    rate, conf, span, d = qw.burn_rate(rows, 60)
+    rate, conf, span, d = qp.burn_rate(rows, 60)
     check("低置信：10 分钟涨 1%", conf == "low", conf)
 
     rows = rows_at(0, 60, 12, 12)
-    rate, conf, span, d = qw.burn_rate(rows, 60)
+    rate, conf, span, d = qp.burn_rate(rows, 60)
     check("无增长判为 idle", rate is None and conf == "idle", conf)
 
     rows = [{"ts": 0, "percent": 5.0}]
-    rate, conf, span, d = qw.burn_rate(rows, 60)
+    rate, conf, span, d = qp.burn_rate(rows, 60)
     check("单条样本无速率", rate is None and conf == "none", conf)
 
 
 def test_cycle_and_stale():
     """周期口径：重置后没再用过的模型标 stale；tokens/积分只算本周期。"""
-    tmp = tempfile.mkdtemp(prefix="qw-cycle-")
-    origin = qw.PROJECTS
+    tmp = tempfile.mkdtemp(prefix="qp-cycle-")
+    origin = qp.PROJECTS
     try:
         now_s = time.time()
         now_ms = int(now_s * 1000)
@@ -130,8 +130,8 @@ def test_cycle_and_stale():
                  credit=0.5, tokens=3000),
         ]
         write_case(d, rows)
-        qw.PROJECTS = tmp
-        rep = qw.build_report(60, 3.0)
+        qp.PROJECTS = tmp
+        rep = qp.build_report(60, 3.0)
 
         by = {r["model"]: r for r in rep["models"]}
         check("过期快照标记 stale", by["m-old"]["stale"] is True, by["m-old"]["stale"])
@@ -153,12 +153,12 @@ def test_cycle_and_stale():
               abs((live["cycle_start"] or 0) - (now_s + 14 * 3600 - 24 * 3600)) < 2,
               live["cycle_start"])
     finally:
-        qw.PROJECTS = origin
+        qp.PROJECTS = origin
 
 
 def test_build_report_cases():
-    tmp = tempfile.mkdtemp(prefix="qw-test-")
-    origin = qw.PROJECTS
+    tmp = tempfile.mkdtemp(prefix="qp-test-")
+    origin = qp.PROJECTS
     try:
         now_s = time.time()
         now_ms = int(now_s * 1000)
@@ -199,8 +199,8 @@ def test_build_report_cases():
                     return r
             raise AssertionError(f"缺少模型 {m}")
 
-        qw.PROJECTS = tmp
-        rep = qw.build_report(60, 3.0)
+        qp.PROJECTS = tmp
+        rep = qp.build_report(60, 3.0)
         check("四个用例都被采到", len(rep["models"]) == 4, [r["model"] for r in rep["models"]])
 
         r1 = by_model(rep, "m-test")
@@ -227,38 +227,38 @@ def test_build_report_cases():
         check("排序：warn 在 ok 之前", levels.index("warn") < levels.index("ok"), levels)
         check("排序：idle 排最后", levels[-1] == "idle", levels)
     finally:
-        qw.PROJECTS = origin
+        qp.PROJECTS = origin
         shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_empty_dir():
-    tmp = tempfile.mkdtemp(prefix="qw-empty-")
-    origin = qw.PROJECTS
+    tmp = tempfile.mkdtemp(prefix="qp-empty-")
+    origin = qp.PROJECTS
     try:
-        qw.PROJECTS = tmp
-        rep = qw.build_report(60, 3.0)
+        qp.PROJECTS = tmp
+        rep = qp.build_report(60, 3.0)
         check("空目录返回 error 而不是崩溃", "error" in rep, rep.get("error"))
         check("空目录不算风险", rep.get("has_risk") is not True)
     finally:
-        qw.PROJECTS = origin
+        qp.PROJECTS = origin
         shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_safe_numbers():
     """字段类型容错：日志是客户端写的，别假设它一定是数字。"""
-    check("普通数字", qw.as_num("12.5") == 12.5)
-    check("带百分号", qw.as_num("12%") == 12.0)
-    check("带千分位", qw.as_num("1,234", cast=int) == 1234)
-    check("非法值走默认", qw.as_num("n/a", default=0.0) == 0.0)
-    check("None 走默认", qw.as_num(None, default=-1) == -1)
-    check("bool 不当数字", qw.as_num(True, default=None) is None)
+    check("普通数字", qp.as_num("12.5") == 12.5)
+    check("带百分号", qp.as_num("12%") == 12.0)
+    check("带千分位", qp.as_num("1,234", cast=int) == 1234)
+    check("非法值走默认", qp.as_num("n/a", default=0.0) == 0.0)
+    check("None 走默认", qp.as_num(None, default=-1) == -1)
+    check("bool 不当数字", qp.as_num(True, default=None) is None)
 
     iso = int(dt.datetime(2026, 11, 7, 10, 0,
                           tzinfo=dt.timezone.utc).timestamp())
-    check("毫秒时间戳", qw.as_epoch(1793975887000) == 1793975887.0)
-    check("秒时间戳", qw.as_epoch(1793975887) == 1793975887.0)
-    check("ISO 字符串", abs(qw.as_epoch("2026-11-07T10:00:00Z") - iso) < 1)
-    check("坏时间戳返回 None", qw.as_epoch("不是时间") is None)
+    check("毫秒时间戳", qp.as_epoch(1793975887000) == 1793975887.0)
+    check("秒时间戳", qp.as_epoch(1793975887) == 1793975887.0)
+    check("ISO 字符串", abs(qp.as_epoch("2026-11-07T10:00:00Z") - iso) < 1)
+    check("坏时间戳返回 None", qp.as_epoch("不是时间") is None)
 
 
 def test_malformed_lines():
@@ -294,12 +294,12 @@ def test_malformed_lines():
         })),
         ("整行不是对象", "[1, 2, 3]"),
     ]
-    origin = qw.PROJECTS
-    tmp = tempfile.mkdtemp(prefix="qw-bad-")
+    origin = qp.PROJECTS
+    tmp = tempfile.mkdtemp(prefix="qp-bad-")
     try:
-        qw.PROJECTS = tmp
+        qp.PROJECTS = tmp
         write_case(os.path.join(tmp, "p1"), [good] + [c[1] for c in cases])
-        rep = qw.build_report(60, 3)
+        rep = qp.build_report(60, 3)
         names = [r["model"] for r in rep["models"]]
         check("坏行没让整份报告失效", not rep.get("error"), rep.get("error"))
         check("有效行仍被统计", "m-test" in names, names)
@@ -307,7 +307,7 @@ def test_malformed_lines():
         check("千分位数字被容错解析", "m-comma" in names, names)
         check("percent 非数值的行被跳过", "m-badpct" not in names, names)
     finally:
-        qw.PROJECTS = origin
+        qp.PROJECTS = origin
         shutil.rmtree(tmp, ignore_errors=True)
 
 
@@ -315,10 +315,10 @@ def test_cli():
     """CLI 与界面同一套口径：数最近 N 分钟涨了几个百分点，而不是端点差分算增速。"""
     import contextlib
     import io
-    origin = qw.PROJECTS
-    tmp = tempfile.mkdtemp(prefix="qw-cli-")
+    origin = qp.PROJECTS
+    tmp = tempfile.mkdtemp(prefix="qp-cli-")
     try:
-        qw.PROJECTS = tmp
+        qp.PROJECTS = tmp
         now_ms = int(time.time() * 1000)
         reset = int(time.time() + 5 * 3600)
         write_case(os.path.join(tmp, "p1"),
@@ -326,11 +326,11 @@ def test_cli():
 
         def run(*argv):
             old = sys.argv
-            sys.argv = ["quota_watch.py"] + list(argv)
+            sys.argv = ["quota_pill.py"] + list(argv)
             buf = io.StringIO()
             try:
                 with contextlib.redirect_stdout(buf):
-                    code = qw.main()
+                    code = qp.main()
             finally:
                 sys.argv = old
             return code, buf.getvalue()
@@ -356,7 +356,7 @@ def test_cli():
         check("has_risk 与 level 一致",
               rep["has_risk"] == any(m["level"] == "critical" for m in live), rep["has_risk"])
     finally:
-        qw.PROJECTS = origin
+        qp.PROJECTS = origin
         shutil.rmtree(tmp, ignore_errors=True)
 
 
@@ -412,20 +412,20 @@ def test_footer():
     """
     import contextlib
     import io as _io
-    origin = qw.PROJECTS
-    tmp = tempfile.mkdtemp(prefix="qw-foot-")
+    origin = qp.PROJECTS
+    tmp = tempfile.mkdtemp(prefix="qp-foot-")
     try:
-        qw.PROJECTS = tmp
+        qp.PROJECTS = tmp
         now_ms = int(time.time() * 1000)
         reset = int(time.time() + 6 * 3600)
 
         def run():
             old = sys.argv
-            sys.argv = ["quota_watch.py"]
+            sys.argv = ["quota_pill.py"]
             buf = _io.StringIO()
             try:
                 with contextlib.redirect_stdout(buf):
-                    qw.main()
+                    qp.main()
             finally:
                 sys.argv = old
             return buf.getvalue()
@@ -449,7 +449,7 @@ def test_footer():
               "没有模型会在本周期内到上限" in out2, out2[-160:])
         check("慢烧不升级等级", "[ok]m-test" in out2, out2[-260:])
     finally:
-        qw.PROJECTS = origin
+        qp.PROJECTS = origin
         shutil.rmtree(tmp, ignore_errors=True)
 
 

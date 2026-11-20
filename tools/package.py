@@ -7,7 +7,7 @@
 为什么要白名单：项目里还有 tests/、delivery/（6 张 bmp 共 28MB）、README 和交接文档，
 这些对测试成员没用，只会让包变大、让他们困惑该点哪个文件。
 `tools/watchdog.tpl` 必须带上 —— 「开机自动待命」靠它生成登录脚本，少了这一步会静默失败。
-`forecast.py` 也必须带上 —— 预测层是独立模块，`quota_tray` / `quota_watch` 都硬 import 它；
+`forecast.py` 也必须带上 —— 预测层是独立模块，`quota_tray` / `quota_pill` 都硬 import 它；
 漏了不会在打包时报错，而是使用者一解压就 ImportError。`check_zip()` 兜住这一类漏文件。
 """
 import ast
@@ -25,7 +25,7 @@ TOP = "quota-pill"          # 压缩包内的顶层目录，也是包名的前�
 
 FILES = [
     "quota_tray.py",
-    "quota_watch.py",
+    "quota_pill.py",
     "forecast.py",
     "tray.bat",
     "run.bat",

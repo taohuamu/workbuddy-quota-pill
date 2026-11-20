@@ -3,7 +3,7 @@
 """
 WorkBuddy 配额胶囊 · 右下角常驻小窗
 ==================================
-展示层：用量与周期来自 quota_watch.build_report()，预测与等级来自 forecast.attach()；
+展示层：用量与周期来自 quota_pill.build_report()，预测与等级来自 forecast.attach()；
 本文件不重复任何判定逻辑，也不碰配额快照的解析与取整口径。
 
 生命周期（跟随 WorkBuddy 主窗口，而非仅进程）：
@@ -37,7 +37,7 @@ import threading
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import quota_watch as qw  # noqa: E402
+import quota_pill as qp  # noqa: E402
 import forecast  # noqa: E402  与技能版同一份预测实现
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -264,8 +264,8 @@ def scan_report(window_min, warn_h):
     预测要数窗口内有几格，需要原始快照；报告也要同一份。分两次读就是两遍全量扫
     （各 0.4~0.7 秒），跟随刷新的窗口会顿一下——`build_report(loaded=...)` 就是为这个留的口子。
     """
-    loaded = qw.load_snapshots()
-    rep = qw.build_report(window_min, warn_h, loaded=loaded)
+    loaded = qp.load_snapshots()
+    rep = qp.build_report(window_min, warn_h, loaded=loaded)
     models = rep.get("models") or []
     if models:
         forecast.attach(models, loaded[0], window_min, warn_h,
@@ -2504,12 +2504,12 @@ class TrayWindow:
         连点会一次弹好几个控制台，所以 1.5 秒内只认第一次。
         
 
-        不能直接 `python quota_watch.py`：脚本打印完表格就 exit，控制台窗口立刻销毁，
+        不能直接 `python quota_pill.py`：脚本打印完表格就 exit，控制台窗口立刻销毁，
         用户只看到闪一下、以为「点了没反应」。所以走 run.bat（末尾有 pause 留住窗口），
         实在没有 run.bat 就用 `cmd /k` 包一层。
         """
         flags = 0x00000010 if os.name == "nt" else 0  # CREATE_NEW_CONSOLE
-        script = os.path.join(HERE, "quota_watch.py")
+        script = os.path.join(HERE, "quota_pill.py")
         bat = os.path.join(HERE, "run.bat")
         try:
             if os.name == "nt" and os.path.exists(bat):
@@ -2993,7 +2993,7 @@ class ReportWindow:
             ("重置", str(r.get("reset_local") or "—")),
             ("近 %d 分钟" % int(round(fc.get("window_min") or 15)),
              forecast.obs_cell(fc)),
-            ("距重置", qw.fmt_dur(r.get("hours_to_reset"))),
+            ("距重置", qp.fmt_dur(r.get("hours_to_reset"))),
         ]
         line2 = [
             ("按此速度", forecast.eta_cell(fc)),
@@ -3228,7 +3228,7 @@ def build_parser():
 def main(argv=None):
     args = build_parser().parse_args(sys.argv[1:] if argv is None else argv)
     # 探测周期同时是隐藏判定的粒度：低于 0.2 秒没有意义，只会白烧 CPU
-    # 小于 1 分钟的窗口数不出东西，统一回落到默认值（与 quota_watch / notify 一致）
+    # 小于 1 分钟的窗口数不出东西，统一回落到默认值（与 quota_pill / notify 一致）
     args.window = int(args.window)
     if args.window < 1:
         args.window = int(forecast.WINDOW_MIN)
@@ -3260,7 +3260,7 @@ def main(argv=None):
         return 0 if ok else 2
 
     if os.name != "nt":
-        log("小窗依赖 Windows 窗口 API；当前系统请用 python quota_watch.py 看命令行报告。")
+        log("小窗依赖 Windows 窗口 API；当前系统请用 python quota_pill.py 看命令行报告。")
         return 2
     try:
         import tkinter  # noqa: F401

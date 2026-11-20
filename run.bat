@@ -7,7 +7,7 @@ if errorlevel 1 (
     pause
     exit /b 2
 )
-python quota_watch.py %*
+python quota_pill.py %*
 set CODE=%ERRORLEVEL%
 echo.
 if not "%CODE%"=="0" echo [提示] 退出码 %CODE%：存在触限风险。

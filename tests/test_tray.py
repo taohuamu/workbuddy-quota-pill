@@ -300,7 +300,7 @@ def test_summary():
 
 
 def test_startup():
-    tmp = tempfile.mkdtemp(prefix="qw-boot-")
+    tmp = tempfile.mkdtemp(prefix="qp-boot-")
     old = os.environ.get("APPDATA")
     try:
         os.environ["APPDATA"] = tmp
@@ -335,7 +335,7 @@ def test_startup():
 
 def test_legacy_migration():
     """改名迁移：状态文件与自启项都要跟过来，且不许覆盖已有的新配置。"""
-    base = tempfile.mkdtemp(prefix="qw-migrate-")
+    base = tempfile.mkdtemp(prefix="qp-migrate-")
     appdata = os.path.join(base, "appdata")
     os.makedirs(appdata, exist_ok=True)
     old_state, old_legacy = qt.STATE_DIR, qt.LEGACY_STATE_DIR
@@ -453,7 +453,7 @@ def test_lifecycle():
 
 
 def test_state_file():
-    tmp = tempfile.mkdtemp(prefix="qw-tray-")
+    tmp = tempfile.mkdtemp(prefix="qp-tray-")
     old_dir, old_file = qt.STATE_DIR, qt.STATE_FILE
     try:
         qt.STATE_DIR = tmp
@@ -473,7 +473,7 @@ def test_state_file():
 
 def test_layout_state():
     """布局存档：layout 子树优先、旧平铺字段兼容、保存时清掉旧字段。"""
-    tmp = tempfile.mkdtemp(prefix="qw-lay-")
+    tmp = tempfile.mkdtemp(prefix="qp-lay-")
     old_dir, old_file = qt.STATE_DIR, qt.STATE_FILE
     try:
         qt.STATE_DIR = tmp

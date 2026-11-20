@@ -11,10 +11,10 @@ WorkBuddy 模型配额胶囊
     %USERPROFILE%\\.workbuddy\\projects\\*\\*.jsonl
 
 用法：
-    python quota_watch.py              # 表格报告
-    python quota_watch.py --json       # 机器可读，便于接自动化
-    python quota_watch.py --window 45  # 观测窗口改为最近 45 分钟
-    python quota_watch.py --warn-only  # 仅在有风险时输出（配合定时任务）
+    python quota_pill.py              # 表格报告
+    python quota_pill.py --json       # 机器可读，便于接自动化
+    python quota_pill.py --window 45  # 观测窗口改为最近 45 分钟
+    python quota_pill.py --warn-only  # 仅在有风险时输出（配合定时任务）
 
 退出码：
     0 = 没有模型接近上限    1 = 有模型已用 ≥95%
