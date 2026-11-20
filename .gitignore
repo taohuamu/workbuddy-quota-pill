@@ -31,5 +31,8 @@ UI-HANDOFF.md
 .DS_Store
 Thumbs.db
 
-# ── 迭代基线备份（体积大，路径见 _iteration/iteration_state.md） ──
+# ── 迭代备份（体积大，路径见 _iteration/iteration_state.md） ──
 _iteration/baseline_*/
+# 逐轮单文件快照：收敛后合并进 _iteration/backups/*.zip，目录形态不再入库
+_iteration/backup_*/
+_iteration/backups/
