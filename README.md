@@ -127,7 +127,8 @@ WorkBuddy 退出后，本工具在 10 秒后自行结束进程，只剩看门狗
 6. **胶囊不出现**：WorkBuddy 未运行时它不显示。若 WorkBuddy 正在运行仍无显示，查看
    `%LOCALAPPDATA%\quota-pill\tray.log` 末尾几行。
 7. **双击 `tray.bat` 没有反应**：多为 Python 缺少 tkinter。在解压目录运行
-   `python quota_tray.py --which`，输出中应含以 `tk` 开头的一行。
+   `python quota_tray.py --which`，每行形如 `11-20 23:45:43 tk  C:\...\python.exe`
+   （时间、状态、路径）——**中间那段为 `tk`** 就说明该解释器带 tkinter，全是 `--` 才是缺。
 8. **数字和账号余额对不上**：这里显示的是单个模型在本周期用掉的额度，不是账号积分余额，
    两者口径不同。`percent` 为整数，粒度 1%，因此会出现「用了一会儿仍显示 0%」的情况。
 9. **数据存放在哪、会不会上传**：全部来自本机的会话日志。国际版路径为

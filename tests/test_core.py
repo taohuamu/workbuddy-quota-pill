@@ -360,6 +360,28 @@ def test_cli():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_which_wording():
+    """`--which` 的判读说明必须与实际输出格式一致。
+
+    实际每行是「时间 状态 路径」三段（`11-20 23:45:43 tk  C:\\...\\python.exe`），
+    三份文档却都写「输出中应有一行以 `tk` 开头」——照字面 grep 永远空手，
+    会让人以为缺 tkinter 而白重装一次 Python。
+    """
+    import io as _io
+    import re
+    here = os.path.dirname(os.path.abspath(__file__))
+    root = os.path.dirname(here)
+    docs = ["使用说明.md", "README.md", "README.en.md"]
+    for name in docs:
+        path = os.path.join(root, name)
+        text = _io.open(path, encoding="utf-8").read()
+        check("%s 不再说「以 tk 开头」" % name,
+              "以 `tk` 开头" not in text and "starting with `tk`" not in text)
+    text = _io.open(os.path.join(root, "使用说明.md"), encoding="utf-8").read()
+    check("说明书给出三段格式示例", bool(re.search(r"\d{2}-\d{2} \d{2}:\d{2}:\d{2}\s+tk\s", text)))
+    check("说明书点明看「状态」那段", "状态" in text)
+
+
 def test_footer():
     """页脚的「会不会到上限」必须由读数算出来，不能写死。
 
@@ -421,5 +443,6 @@ if __name__ == "__main__":
     test_malformed_lines()
     test_cli()
     test_footer()
+    test_which_wording()
     print(f"\n通过 {PASS}，失败 {FAIL}")
     sys.exit(1 if FAIL else 0)
