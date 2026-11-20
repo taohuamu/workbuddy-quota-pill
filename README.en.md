@@ -51,6 +51,23 @@ Opens when you click any row of the card (or "Details" at its top right). Lists 
 
 A window isn't the only option. The same data and the same thresholds are also packaged as a [skill version](https://github.com/taohuamu/workbuddy-quota-pill-skills): install it into WorkBuddy — coming soon to the WorkBuddy skill marketplace.
 
+## What the colors mean
+
+Colors have exactly one source: the model's **level**, which takes the worse of two signals — how much is already used, and whether the recent 15-minute pace would exhaust the quota before it resets.
+
+| Color | Level | When |
+|---|---|---|
+| Red | critical | **≥ 95%** used |
+| Amber | warn | **≥ 80%** used; or the current pace won't last until this cycle's reset (with at least 4 percentage points of movement in the window) |
+| Green | ok | everything else |
+| Gray | idle | nothing to judge: no snapshot yet, or every model is parked in the previous cycle |
+
+Three things that are easy to misread:
+
+- **The dot uses the worst level across all models; the percentage next to it uses that model's own level.** "Red dot, green number" therefore means one other model is about to hit the wall while the one shown is fine.
+- **"Won't last until reset" is not a fixed number of hours.** The tool estimates how long until 100% at the current pace and compares that with each model's own reset time. If the reset arrives first, the model is fine — the estimate never gets a chance to happen.
+- **`--pct` / `--warn` do not change colors.** They belong to the optional alert task (popup at 80% used or within 2 hours of the limit) and only decide whether you get disturbed.
+
 ## How it works
 
 WorkBuddy writes session logs locally, and those logs record per-model quota usage. That is where this tool gets its data.

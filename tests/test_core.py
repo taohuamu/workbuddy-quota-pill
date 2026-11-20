@@ -382,6 +382,28 @@ def test_which_wording():
     check("说明书点明看「状态」那段", "状态" in text)
 
 
+def test_color_docs():
+    """颜色说明必须与代码里的阈值一致（95 / 80 / 灰只用于无数据）。
+
+    文档曾写「数字颜色随自身档位（0% 为灰）」——但 attach() 会用 level_of() 重算，
+    0% 回 ok 是绿色。这类「文档描述的是旧实现」的错误，只能靠断言钉住。
+    """
+    import io as _io
+    here = os.path.dirname(os.path.abspath(__file__))
+    root = os.path.dirname(here)
+    for name in ("README.md", "README.en.md", "使用说明.md"):
+        text = _io.open(os.path.join(root, name), encoding="utf-8").read()
+        check("%s 写明 95 与 80 两条线" % name, "≥ 95%" in text and "≥ 80%" in text)
+    design = _io.open(os.path.join(root, "docs", "design.md"), encoding="utf-8").read()
+    check("design.md 不再说「0% 为灰」", "0% 为灰" not in design)
+    check("design.md 说明灰只用于无数据", "灰只在没有可判数据时出现" in design)
+
+    import forecast
+    check("代码：95 判危险", forecast.level_of(95, None, 23.0) == "critical")
+    check("代码：80 判注意", forecast.level_of(80, None, 23.0) == "warn")
+    check("代码：79 判正常（0% 也是绿）", forecast.level_of(79, None, 23.0) == "ok")
+
+
 def test_footer():
     """页脚的「会不会到上限」必须由读数算出来，不能写死。
 
@@ -444,5 +466,6 @@ if __name__ == "__main__":
     test_cli()
     test_footer()
     test_which_wording()
+    test_color_docs()
     print(f"\n通过 {PASS}，失败 {FAIL}")
     sys.exit(1 if FAIL else 0)
