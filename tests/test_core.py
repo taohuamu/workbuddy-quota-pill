@@ -58,6 +58,74 @@ def write_case(proj_dir, rows):
             fh.write(r + "\n")
 
 
+def test_usage_without_quota():
+    """没有 quota 字段的调用也要计入次数 / tokens / 积分。
+
+    hy4 只有约一成记录带 quota，其余是纯 rawUsage。旧实现用 `'"quota"' in line`
+    预筛，把这些行整条丢掉，于是屏幕上写着「33 次 · 0 积分」，实际是 367 次、
+    4.38 积分（近 24h 日志实测）。百分比仍只能来自快照行，但消耗必须算全。
+    """
+    tmp = tempfile.mkdtemp(prefix="qp-usage-")
+    origin = qp.PROJECTS
+    try:
+        now_s = time.time()
+        now_ms = int(now_s * 1000)
+        reset = now_s + 10 * 3600
+        d = os.path.join(tmp, "u")
+        rows = [
+            line(now_ms - 3600 * 1000, 40, reset, model="m-x", credit=1.0, tokens=1000),
+            # 同一次会话里服务端没下发 quota 的那条：只有 rawUsage
+            json.dumps({"type": "function_call", "timestamp": now_ms - 1800 * 1000,
+                        "providerData": {"model": "m-x",
+                                         "rawUsage": {"credit": 2.0, "total_tokens": 5000}}},
+                       ensure_ascii=False),
+        ]
+        write_case(d, rows)
+        qp.PROJECTS = tmp
+        rep = qp.build_report(60, 3.0)
+        m = {r["model"]: r for r in rep["models"]}["m-x"]
+        check("无 quota 的调用计入次数", m["requests_cycle"] == 2, m["requests_cycle"])
+        check("无 quota 的调用计入积分",
+              abs(m["credit_cycle"] - 3.0) < 1e-6, m["credit_cycle"])
+        check("无 quota 的调用计入 tokens", m["tokens_cycle"] == 6000, m["tokens_cycle"])
+    finally:
+        qp.PROJECTS = origin
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # 别名归并：quota.model=m-y 与 providerData.model=m-y-free 是同一个池，
+    # 不归并就会拆成两行、各算一半
+    tmp2 = tempfile.mkdtemp(prefix="qp-alias-")
+    try:
+        now_s = time.time()
+        now_ms = int(now_s * 1000)
+        reset = now_s + 10 * 3600
+        d = os.path.join(tmp2, "a")
+        with_quota = {
+            "type": "function_call", "timestamp": now_ms - 3600 * 1000,
+            "providerData": {"model": "m-y-free", "rawUsage": {
+                "credit": 1.0, "total_tokens": 1000,
+                "quota": {"model": "m-y", "percent": 40,
+                          "reset_at": str(int(reset)), "shared_models": []}}},
+        }
+        no_quota = {
+            "type": "function_call", "timestamp": now_ms - 600 * 1000,
+            "providerData": {"model": "m-y", "rawUsage": {
+                "credit": 2.0, "total_tokens": 2000}},
+        }
+        write_case(d, [json.dumps(with_quota, ensure_ascii=False),
+                       json.dumps(no_quota, ensure_ascii=False)])
+        qp.PROJECTS = tmp2
+        rep = qp.build_report(60, 3.0)
+        names = [r["model"] for r in rep["models"]]
+        check("别名不拆成两行", names == ["m-y"], names)
+        m = rep["models"][0]
+        check("别名归并后积分合到一起",
+              abs(m["credit_cycle"] - 3.0) < 1e-6, m["credit_cycle"])
+    finally:
+        qp.PROJECTS = origin
+        shutil.rmtree(tmp2, ignore_errors=True)
+
+
 def test_norm_reset():
     check("秒级时间戳原样保留", qp.norm_reset("1793975887") == 1793975887.0)
     check("毫秒级时间戳被归一", qp.norm_reset(1793975887000) == 1793975887.0)
@@ -459,6 +527,7 @@ if __name__ == "__main__":
     test_fmt_dur()
     test_burn_rate()
     test_cycle_and_stale()
+    test_usage_without_quota()
     test_build_report_cases()
     test_empty_dir()
     test_safe_numbers()

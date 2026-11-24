@@ -110,9 +110,46 @@ def _snapshot_of(rec):
     }
 
 
+def _usage_of(rec):
+    """一行日志 → {ts, credit, tokens}；没有 rawUsage 或时间戳 → None。
+
+    与 `_snapshot_of` 分开：后者要求 `quota` 存在（百分比与重置时刻来自它），
+    而**多数调用根本没有 quota 字段**（hy4 约一成带）。它们照样消耗 tokens 与
+    积分，只统计快照行会把这两项少报一个数量级。
+    """
+    if not isinstance(rec, dict):
+        return None
+    pd = rec.get("providerData")
+    if not isinstance(pd, dict):
+        return None
+    ru = pd.get("rawUsage")
+    if not isinstance(ru, dict):
+        return None
+    ts = as_epoch(rec.get("timestamp"))
+    if ts is None:
+        return None
+    return {
+        "ts": ts,
+        "credit": as_num(ru.get("credit"), default=0.0),
+        "tokens": as_num(ru.get("total_tokens") or ru.get("totalTokens"),
+                         cast=int, default=0),
+    }
+
+
 def load_snapshots():
-    """返回 ({model: [ {ts,percent,reset_at,credit,tokens} ... ]}, 文件数, 快照数)。"""
+    """返回 ({model: [快照]}, {model: [用量]}, 文件数, 快照数)。
+
+    快照只收带 `quota` 的行，用来算百分比、重置时刻与预测；用量另收一份，
+    覆盖所有带 `rawUsage` 的行。两份分开是因为展示要「同屏百分比 + 累计消耗」，
+    而这两类数据的字段密度差得很远。
+
+    `quota.model` 与 `providerData.model` 常常不同名（`hy4-free` ↔ `hy4`、
+    `hy4-flash-free` ↔ `hy4-flash`）。名称在扫描中先后出现，所以先记别名表，
+    扫完再归并 —— 否则同一个池会被拆成两行，用量各算一半。
+    """
     snaps = defaultdict(list)
+    usage = defaultdict(list)
+    alias = {}
     files = glob.glob(os.path.join(PROJECTS, "*", "*.jsonl"))
     seen = 0
     for path in files:
@@ -122,20 +159,37 @@ def load_snapshots():
             continue
         with fh:
             for line in fh:
-                if '"quota"' not in line:
+                if '"rawUsage"' not in line:
                     continue
                 try:
-                    got = _snapshot_of(json.loads(line))
+                    rec = json.loads(line)
                 except Exception:
                     continue            # 单行任何异常都不许外溢
-                if got is None:
+                if not isinstance(rec, dict):
                     continue
-                model, row = got
-                snaps[model].append(row)
+                pd = rec.get("providerData")
+                if not isinstance(pd, dict):
+                    continue
+                m_pd = pd.get("model")
+                got = _usage_of(rec)
+                if got is not None and m_pd:
+                    usage[m_pd].append(got)
+                snap = _snapshot_of(rec)
+                if snap is None:
+                    continue
+                m_q, row = snap
+                snaps[m_q].append(row)
                 seen += 1
+                if m_pd and m_q and m_pd != m_q:
+                    alias[m_pd] = m_q
     for m in snaps:
         snaps[m].sort(key=lambda r: r["ts"])
-    return snaps, len(files), seen
+    merged = defaultdict(list)
+    for m, rows in usage.items():
+        merged[alias.get(m, m)].extend(rows)
+    for m in merged:
+        merged[m].sort(key=lambda r: r["ts"])
+    return snaps, merged, len(files), seen
 
 
 def burn_rate(rows, window_min):
@@ -197,9 +251,9 @@ def build_report(window_min, warn_threshold, loaded=None):
     而全量扫是 0.4~0.7 秒量级，跟随刷新的窗口会明显卡一下。
     """
     if loaded is None:
-        snaps, n_files, n_rec = load_snapshots()
+        snaps, usage, n_files, n_rec = load_snapshots()
     else:
-        snaps, n_files, n_rec = loaded
+        snaps, usage, n_files, n_rec = loaded
     if not snaps:
         return {"models": [], "error": "未找到配额快照（是否还没用 WorkBuddy 跑过对话？）",
                 "files": n_files, "records": n_rec}
@@ -222,6 +276,13 @@ def build_report(window_min, warn_threshold, loaded=None):
         cyc = [r for r in rows if cycle_start is None or r["ts"] >= cycle_start - 1.0]
         if not cyc:
             cyc = rows[-1:]
+
+        # 用量（tokens / 积分 / 调用次数）走 usage 而不是快照行：没有 quota 的调用
+        # 也算数，否则 hy4 这类字段稀疏的模型会显示「0 积分」「33 次」。
+        urows = usage.get(model, [])
+        used = [u for u in urows if cycle_start is None or u["ts"] >= cycle_start - 1.0]
+        if not used:
+            used = urows[-1:]
 
         rate, conf, span_min, d_pct = burn_rate(cyc, window_min)
         eta = None
@@ -260,16 +321,16 @@ def build_report(window_min, warn_threshold, loaded=None):
             "sample_span_min": round(span_min, 1),
             "eta_hours_to_limit": round(eta, 2) if eta is not None else None,
             "shared_models": last["shared"],
-            "requests": len(rows),
-            "credit_total": round(sum(r["credit"] for r in rows), 2),
-            "tokens_total": sum(r["tokens"] for r in rows),
+            "requests": len(urows) or len(rows),
+            "credit_total": round(sum(u["credit"] for u in urows), 2),
+            "tokens_total": sum(u["tokens"] for u in urows),
             "stale": stale,
             "cycle_start": cycle_start,
             "cycle_start_local": human_time(cycle_start) if cycle_start else None,
             "cycle_hours": PERIOD_H,
-            "requests_cycle": len(cyc),
-            "credit_cycle": round(sum(r["credit"] for r in cyc), 2),
-            "tokens_cycle": sum(r["tokens"] for r in cyc),
+            "requests_cycle": len(used) or len(cyc),
+            "credit_cycle": round(sum(u["credit"] for u in used), 2),
+            "tokens_cycle": sum(u["tokens"] for u in used),
             "level": level,
             "verdict": verdict,
             "first_seen": human_time(rows[0]["ts"]),
